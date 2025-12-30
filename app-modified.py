@@ -74,7 +74,6 @@ with st.sidebar:
 def initialize_system():
     # A closed-universe corpus designed to demonstrate verbatim retention
     corpus = [
-        
         # --- ORIGINAL BASELINE (The Core "Linguistic Universe") ---
         "The happy dog sat on the rug.", "The lazy cat slept on the sofa.", "The playful dog chased the red toy.",
         "The sleepy cat watched the small bird.", "The brown dog ate the big bone.", "The white cat hid under the bed.",
@@ -134,29 +133,26 @@ def initialize_system():
         "The big dog wanted the red toy.", "The furry cat dropped the mouse.", "The happy dog ran on the sofa.",
         "The lazy cat played with the dog.", "The playful dog saw the moon.", "The sleepy cat ate the big bone.",
         
-        # --- LOCATION & OBJECT VARIATIONS (Breaking the "Bed/Rug" Bias) ---
+        # --- LOCATION & OBJECT VARIATIONS ---
         "The happy dog sat at the table.", "The lazy cat slept under the table.", "The brown dog hid under the table.",
         "The small mouse ran under the table.", "The big bird sat on the table.", "The white cat played at the table.",
-        
         "The sleepy dog sat on the chair.", "The furry cat slept on the chair.", "The small bird watched from the chair.",
         "The playful mouse hid under the chair.", "The big dog jumped on the chair.", "The red toy was on the chair.",
-        
         "The brown dog sat in the box.", "The white cat slept in the box.", "The small mouse hid in the box.",
         "The furry toy was in the box.", "The big bone was in the box.", "The playful cat played in the box.",
-        
         "The dog ran on the green grass.", "The cat played on the green grass.", "The bird sat on the green grass.",
         "The big bone lay on the grass.", "The small toy lay on the grass.", "The furry dog slept on the grass.",
         
-        # --- PREPOSITIONAL VARIATIONS (Breaking "On/Under" Bias) ---
+        # --- PREPOSITIONAL VARIATIONS ---
         "The dog stood by the door.", "The cat sat by the door.", "The mouse ran by the door.",
         "The bird flew near the window.", "The cat watched the window.", "The dog sat near the window.",
         "The big cat hid behind the chair.", "The small dog hid behind the table.", "The mouse hid behind the box.",
         "The white dog stood near the bed.", "The brown cat stood near the rug.", "The sleepy bird stood near the food."
     ]
-    # Pre-tokenize with preserve_line=True to treat list elements as individual sentences
+    # Pre-tokenize
     tokens = [word.lower() for sentence in corpus for word in word_tokenize(sentence, preserve_line=True) if word.isalpha()]
     
-    # Create N-Grams (Context Windows)
+    # Create N-Grams
     sequence_length = 3
     sequences_list, targets = [], []
     
@@ -166,13 +162,12 @@ def initialize_system():
         sequences_list.append(" ".join(seq))
         targets.append(target)
         
-    # Vectorization (Mathematizing the text)
+    # Vectorization
     vectorizer = TfidfVectorizer()
     X = vectorizer.fit_transform(sequences_list)
     y = np.array(targets)
     
-    # The Algorithm: Linear Support Vector Machine
-    # Chosen for its mathematical transparency compared to Neural Networks
+    # The Algorithm: Linear SVM
     svm_model = SVC(kernel='linear', C=1.0, probability=True)
     svm_model.fit(X, y)
     
@@ -180,7 +175,6 @@ def initialize_system():
 
 # --- 4. Logic: Inference & Provenance Tracking ---
 def generate_and_audit(input_text, model, vectorizer, sequence_length, sequences_list, corpus):
-    # 1. Prepare Input
     tokenized_input = word_tokenize(input_text.lower())
     if len(tokenized_input) < sequence_length:
         return None, None
@@ -188,11 +182,8 @@ def generate_and_audit(input_text, model, vectorizer, sequence_length, sequences
     last_sequence = " ".join(tokenized_input[-sequence_length:])
     input_vector = vectorizer.transform([last_sequence])
     
-    # 2. Mathematical Prediction
     prediction = model.predict(input_vector)[0]
     
-    # 3. Provenance Audit
-    # Identify the exact source in the training data that mandated this output
     search_phrase = f"{last_sequence} {prediction}"
     evidence = []
     
@@ -203,9 +194,8 @@ def generate_and_audit(input_text, model, vectorizer, sequence_length, sequences
             
     return prediction, evidence
     
-# --- 5. Visualization Logic (Enhanced) ---
+# --- 5. Visualization Logic ---
 def plot_mathematical_boundary(X, y, sequences, class1, class2):
-    # Filters data to show only two words to demonstrate the geometric boundary
     class1_indices = np.where(y == class1)[0]
     class2_indices = np.where(y == class2)[0]
     indices = np.concatenate([class1_indices, class2_indices])
@@ -213,18 +203,13 @@ def plot_mathematical_boundary(X, y, sequences, class1, class2):
     if len(class1_indices) < 2 or len(class2_indices) < 2: return None
     
     X_filtered, y_filtered = X[indices].toarray(), y[indices]
-    
-    # Retrieve the text sequences corresponding to these vectors
     sequences_filtered = sequences[indices]
     
-    # Dimensionality Reduction for visual representation
     pca = PCA(n_components=2)
     X_2d = pca.fit_transform(X_filtered)
     
-    # Fit a 2D SVM solely for visualization purposes (The "Slice")
     svm_2d = SVC(kernel='linear', C=1.0).fit(X_2d, y_filtered)
 
-    # Grid for decision boundary
     x_min, x_max = X_2d[:, 0].min() - 0.5, X_2d[:, 0].max() + 0.5
     y_min, y_max = X_2d[:, 1].min() - 0.5, X_2d[:, 1].max() + 0.5
     xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.02), np.arange(y_min, y_max, 0.02))
@@ -233,19 +218,14 @@ def plot_mathematical_boundary(X, y, sequences, class1, class2):
 
     fig = go.Figure()
     
-    # The Decision Plane (Background)
-    # Using a very light opacity (0.2) to ensure the dots pop out
     fig.add_trace(go.Contour(
         x=xx[0], y=yy[:, 0], z=Z_num, 
         colorscale=[[0, 'rgba(255, 0, 0, 0.1)'], [1, 'rgba(0, 0, 255, 0.1)']], 
-        opacity=0.4, 
-        showscale=False,
-        hoverinfo='skip',
-        name="Decision Region"
+        opacity=0.4, showscale=False, hoverinfo='skip', name="Decision Region"
     ))
     
-    colors = {class1: '#D62728', class2: '#1F77B4'} # Strong Red and Blue
-    symbols = {class1: 'circle', class2: 'diamond'} # Different shapes for clarity
+    colors = {class1: '#D62728', class2: '#1F77B4'}
+    symbols = {class1: 'circle', class2: 'diamond'}
     
     for cls in [class1, class2]:
         mask = (y_filtered == cls)
@@ -253,56 +233,60 @@ def plot_mathematical_boundary(X, y, sequences, class1, class2):
             x=X_2d[mask, 0], y=X_2d[mask, 1], 
             mode='markers', 
             name=f"Predicts '{cls}'",
-            marker=dict(
-                color=colors[cls], 
-                size=14, 
-                symbol=symbols[cls],
-                line=dict(width=2, color='black') # High contrast border
-            ),
-            # Injecting the text data into the chart
+            marker=dict(color=colors[cls], size=14, symbol=symbols[cls], line=dict(width=2, color='black')),
             customdata=sequences_filtered[mask],
-            hovertemplate=(
-                '<b>Phrase:</b> "%{customdata}"<br>'
-                '<b>Next Word:</b> '+cls+'<br>'
-                '<extra></extra>' # Hides the secondary box
-            )
+            hovertemplate='<b>Phrase:</b> "%{customdata}"<br><b>Next Word:</b> '+cls+'<br><extra></extra>'
         ))
         
     fig.update_layout(
-        title=dict(
-            text=f"Geometric Boundary: '{class1}' vs. '{class2}'<br><span style='font-size: 14px; color: gray;'>Each dot represents a phrase which ends in the specific next word.</span>",
-            y=0.9,
-            x=0.5,
-            xanchor='center',
-            yanchor='top'
-        ),
+        title=f"Geometric Boundary: '{class1}' vs. '{class2}'",
         xaxis_title="Abstract Feature Dimension A", 
         yaxis_title="Abstract Feature Dimension B",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        ),
-        template="plotly_white", 
-        height=500, 
-        margin=dict(l=40, r=40, t=80, b=40)
+        template="plotly_white", height=500
     )
     return fig
 
-# --- 6. Main Interface ---
-# (Replace the previous visualization column logic with this enhanced version)
+# --- 6. Main Interface Execution ---
 
-# ... [Previous Code for Col Left] ...
+# Initialize Session State
+if 'provenance_data' not in st.session_state:
+    st.session_state.provenance_data = None
+if 'generated_word' not in st.session_state:
+    st.session_state.generated_word = None
 
+# Initialize Model
+model, vectorizer, sequence_length, X, y, sequences, corpus = initialize_system()
+
+# --- DEFINE COLUMNS (The Fix) ---
+col_left, col_right = st.columns([1, 1])
+
+# --- LEFT COLUMN: Input & Simulation (Restored from previous context) ---
+with col_left:
+    st.subheader("1. The Simulation")
+    st.markdown("Input a phrase (3+ words) to see how the SVM geometrically maps it to a completion.")
+    
+    # Default text helps users start immediately
+    user_input = st.text_input("Input Sequence:", "The happy dog sat on the")
+    
+    if st.button("Generate Next Token", type="primary"):
+        with st.spinner("Calculating vector trajectory..."):
+            # Artificial delay for dramatic effect
+            time.sleep(0.5) 
+            pred, evidence = generate_and_audit(user_input, model, vectorizer, sequence_length, sequences, corpus)
+            
+            if pred:
+                st.session_state.generated_word = pred
+                st.session_state.provenance_data = evidence
+                st.success(f"**Generated Token:** {pred}")
+            else:
+                st.error(f"Input too short. Please use at least {sequence_length} words.")
+
+# --- RIGHT COLUMN: Provenance & Visualization ---
 with col_right:
     st.subheader("2. Provenance Audit")
     
     if st.session_state.provenance_data:
-        st.markdown(
-            "The system generated a token. Does this represent 'learning' or 'retrieval'?"
-        )
+        st.markdown("The system generated a token. Does this represent 'learning' or 'retrieval'?")
         st.markdown("**Forensic Analysis:**")
         st.markdown(
             "The output was mandated because the input sequence exists verbatim in the source corpus. "
@@ -318,13 +302,10 @@ with col_right:
     st.divider()
     
     st.subheader("3. Mathematical Visualization")
-    
     st.info("ℹ️ **Instruction:** Hover your mouse over any dot. You will see the specific phrase from the training corpus that creates that data point.")
     
     # Dynamic Selectboxes for Visualization
-    # We select two differing words to show a clear boundary
     all_classes = sorted(list(np.unique(y)))
-    # Defaults aimed at a clear contrast
     idx_a = all_classes.index('rug') if 'rug' in all_classes else 0
     idx_b = all_classes.index('table') if 'table' in all_classes else 1
     
