@@ -67,7 +67,7 @@ with st.sidebar:
 # --- 3. The Controlled Corpus & Model ---
 # --- 3. The Dual-Corpus Architecture ---
 @st.cache_data
-def get_sentence_model(version=1):
+def get_sentence_model(sequence_length=3, injected_corpus=None):
     """Builds the Linguistic/Philosophical Model"""
     # 1. Base Corpus (Simple Sentences + Philosophical Context)
     corpus = [
@@ -97,11 +97,13 @@ def get_sentence_model(version=1):
         "The early bird catches the worm.", "The quick brown fox jumps over.",
     ]
     
-    # User Request: "requiring a minimumm of three words is better"
-    # Added version=1 to ensure cache invalidation
-    return _train_pipeline(corpus, "Linguistic Model", sequence_length=3)
+    # Live Injection
+    if injected_corpus:
+        corpus.extend(injected_corpus)
+    
+    return _train_pipeline(corpus, "Linguistic Model", sequence_length=sequence_length)
 @st.cache_data
-def get_arithmetic_model(version=1):
+def get_arithmetic_model(sequence_length=4, injected_corpus=None):
     """Builds the Rigid Arithmetic Model"""
     # 2. Arithmetic Expansion (Programmatic)
     num_map = {
@@ -137,8 +139,10 @@ def get_arithmetic_model(version=1):
                 sentence_sym = f"{a} - {b} = {res}."
                 arithmetic_corpus.append(sentence_sym)
                 
+    if injected_corpus:
+        arithmetic_corpus.extend(injected_corpus)
     # Math needs longer context "2 + 2 =" is 4 tokens usually
-    return _train_pipeline(arithmetic_corpus, "Arithmetic Model", sequence_length=4)
+    return _train_pipeline(arithmetic_corpus, "Arithmetic Model", sequence_length=sequence_length)
 def _train_pipeline(corpus, model_name, sequence_length):
     """Shared training logic for any corpus."""
     sequences_list = []
@@ -159,7 +163,9 @@ def _train_pipeline(corpus, model_name, sequence_length):
             targets.append(target)
             
     # Vectorization
-    vectorizer = TfidfVectorizer(ngram_range=(1, 4))
+    # Adaptive N-gram range: Ensure we capture up to the full sequence length
+    ngram_max = max(4, sequence_length)
+    vectorizer = TfidfVectorizer(ngram_range=(1, ngram_max))
     
     if not sequences_list: 
         return None
@@ -340,11 +346,17 @@ def on_generate_click():
     current_input = st.session_state.user_text
     
     # 1. Detect Intent -> Switch Model
+    # Get parameters from UI (session state)
+    user_n = st.session_state.get('ngram_slider', 3)
+    injections = st.session_state.get('injected_corpus', [])
+    
     intent = detect_intent(current_input)
     if intent == "arithmetic":
-        system_dict = get_arithmetic_model()
+        # Keep math strict (N=4) unless we want to demo breakage, but injection applies.
+        system_dict = get_arithmetic_model(sequence_length=4, injected_corpus=injections)
     else:
-        system_dict = get_sentence_model()
+        # Sentence model uses the slider
+        system_dict = get_sentence_model(sequence_length=user_n, injected_corpus=injections)
         
     st.session_state.active_model_name = system_dict["name"]
         
@@ -365,108 +377,139 @@ def on_generate_click():
         else:
             st.session_state.last_error = f"Input too short (Tokens: {len(word_tokenize(current_input.lower()))}). Need at least {system_dict['sequence_length']} known words/tokens."
 # --- 7. Main Interface Execution ---
-# Initialize Session State
-if 'user_text' not in st.session_state:
-    st.session_state.user_text = "happy dog sat" # User requested default
-if 'provenance_data' not in st.session_state:
-    st.session_state.provenance_data = None
-if 'generated_word' not in st.session_state:
-    st.session_state.generated_word = None
-if 'last_error' not in st.session_state:
-    st.session_state.last_error = None
-if 'active_model_name' not in st.session_state:
-    st.session_state.active_model_name = "Linguistic Model"
-if 'viz_system' not in st.session_state:
-    # Default to sentence model initially
-    st.session_state.viz_system = get_sentence_model()
-if 'candidates' not in st.session_state:
-    st.session_state.candidates = []
-# Ensure models are loaded
-# We load them to have them cache-ready, but use lazy routing in callback
-# (Streamlit execution flow requires we have them reachable)
-get_sentence_model()
-get_arithmetic_model()
-# --- DEFINE COLUMNS ---
-col_left, col_right = st.columns([1, 1], gap="large")
-# --- LEFT COLUMN: Input & Simulation ---
-with col_left:
-    st.subheader("1. The Simulation")
-    st.caption(f"Active System: **{st.session_state.active_model_name}**")
-    
-    st.markdown("Input a phrase. Note how text only needs **3 words** now, but math maintains structure.")
-    
-    st.text_input("Input Sequence:", key="user_text")
-    st.button("Generate Next Token", type="primary", on_click=on_generate_click)
-    
-    if st.session_state.last_error:
-        st.error(st.session_state.last_error)
-        
-    # --- WOW FACTOR: Confidence Metrics ---
-    if st.session_state.candidates:
+if __name__ == "__main__":
+    # Initialize Session State
+    if 'user_text' not in st.session_state:
+        st.session_state.user_text = "happy dog sat" # User requested default
+    if 'provenance_data' not in st.session_state:
+        st.session_state.provenance_data = None
+    if 'generated_word' not in st.session_state:
+        st.session_state.generated_word = None
+    if 'last_error' not in st.session_state:
+        st.session_state.last_error = None
+    if 'active_model_name' not in st.session_state:
+        st.session_state.active_model_name = "Linguistic Model"
+    if 'viz_system' not in st.session_state:
+        # Default to sentence model initially
+        st.session_state.viz_system = get_sentence_model()
+    if 'candidates' not in st.session_state:
+        st.session_state.candidates = []
+    if 'injected_corpus' not in st.session_state:
+        st.session_state.injected_corpus = []
+    # Sidebar Extras for Pedagogical Workbench
+    with st.sidebar:
         st.divider()
-        st.markdown("### 🧠 Internal Calculations")
-        st.caption("The SVM calculates the signed distance of your input vector to the hyperplanes of every possible next word. The 'winner' is the one with the highest positive score.")
+        st.header("⚙️ Pedagogical Workbench")
         
-        top_cand = st.session_state.candidates[0]
+        st.info("Manipulate the model's 'Brain' to see how fragile intelligence is.")
         
-        # Display the winner prominently
-        st.metric(label="Top Prediction", value=top_cand[0], delta=f"{top_cand[1]:.2f} (Dist)")
+        # 1. Context Slider
+        st.markdown("**1. Memory Window (N-Grams)**")
+        ngram_val = st.slider("Words to look back:", min_value=2, max_value=5, value=3, key="ngram_slider")
+        st.caption(f"The model only sees the last **{ngram_val}** words. It has no idea what happened before.")
         
-        # Show "Runner Ups"
-        if len(st.session_state.candidates) > 1:
-            st.write("**Top Alternative Candidates:**")
-            cand_df = pd.DataFrame(st.session_state.candidates[1:], columns=["Token", "Distance"])
-            st.dataframe(cand_df, hide_index=True, use_container_width=True)
-# --- RIGHT COLUMN: Provenance & Visualization ---
-with col_right:
-    st.subheader("2. Provenance Audit")
-    
-    if st.session_state.provenance_data:
-        st.success(f"**Generated:** {st.session_state.generated_word}")
-        st.markdown(f"**Source Matches:** Found {len(st.session_state.provenance_data)} verbatim record(s).")
-        with st.expander("View Source Records", expanded=True):
-            for i, item in enumerate(st.session_state.provenance_data):
-                st.code(f"{item}", language="text")
-    else:
-        st.info("Awaiting generation...")
-    
-    st.divider()
-    
-    st.subheader("3. Geometric Boundary")
-    
-    # Visualization is now fully adaptive
-    if st.session_state.viz_system and st.session_state.generated_word:
-        # Use the prediction to center the visualization
-        pred = st.session_state.generated_word
-        
-        # Interactive Control: Choice of what to compare against
-        # Get all classes for the current system/input
-        # We can use the candidates list if available to filter relevant ones
-        system_y = st.session_state.viz_system["y"]
-        all_possible = sorted(list(np.unique(system_y)))
-        
-        # Default options should include the top runners-up
-        if st.session_state.candidates and len(st.session_state.candidates) > 1:
-            # Suggest the second best as default comparison
-            default_ix = 0
-            second_best = st.session_state.candidates[1][0]
-            if second_best in all_possible:
-                default_ix = all_possible.index(second_best)
-        else:
-            default_ix = 0
+        # 2. Live Injection
+        st.markdown("**2. Live Injection (Poisoning)**")
+        with st.form("inject_form"):
+            new_fact = st.text_input("Teach a 'False' Fact:", placeholder="e.g., The sky is green.")
+            submit_inject = st.form_submit_button("Inject & Retrain")
             
-        col_ctrl1, col_ctrl2 = st.columns([2, 1])
-        with col_ctrl1:
-            compare_class = st.selectbox(
-                f"Show boundary between **'{pred}'** and:", 
-                [c for c in all_possible if c != pred],
-                index=default_ix if default_ix < len([c for c in all_possible if c != pred]) else 0
-            )
-        fig = plot_mathematical_boundary(st.session_state.viz_system, current_prediction=pred, comparison_class=compare_class)
-        if fig:
-            st.plotly_chart(fig, use_container_width=True)
-            st.caption(f"Visualizing the mathematical cut between predicting **'{pred}'** vs **'{compare_class}'**.")
+            if submit_inject and new_fact:
+                st.session_state.injected_corpus.append(new_fact)
+                st.success(f"Injected: '{new_fact}'")
+                # Force reload by calling with new args happens naturally on next click/rerun
+                st.rerun()
+        if st.session_state.injected_corpus:
+            with st.expander("Active Injections"):
+                for item in st.session_state.injected_corpus:
+                    st.code(item)
+                if st.button("Clear All Injections"):
+                    st.session_state.injected_corpus = []
+                    st.rerun()
+    # Ensure models are loaded (Warmup)
+    get_sentence_model(sequence_length=st.session_state.ngram_slider, injected_corpus=st.session_state.injected_corpus)
+    get_arithmetic_model(injected_corpus=st.session_state.injected_corpus) # Keep default 4 for math warmup
+    # --- DEFINE COLUMNS ---
+    col_left, col_right = st.columns([1, 1], gap="large")
+    # --- LEFT COLUMN: Input & Simulation ---
+    with col_left:
+        st.subheader("1. The Simulation")
+        st.caption(f"Active System: **{st.session_state.active_model_name}**")
+        
+        st.markdown("Input a phrase. Note how text only needs **3 words** now, but math maintains structure.")
+        
+        st.text_input("Input Sequence:", key="user_text")
+        st.button("Generate Next Token", type="primary", on_click=on_generate_click)
+        
+        if st.session_state.last_error:
+            st.error(st.session_state.last_error)
+            
+        # --- WOW FACTOR: Confidence Metrics ---
+        if st.session_state.candidates:
+            st.divider()
+            st.markdown("### 🧠 Internal Calculations")
+            st.caption("The SVM calculates the signed distance of your input vector to the hyperplanes of every possible next word. The 'winner' is the one with the highest positive score.")
+            
+            top_cand = st.session_state.candidates[0]
+            
+            # Display the winner prominently
+            st.metric(label="Top Prediction", value=top_cand[0], delta=f"{top_cand[1]:.2f} (Dist)")
+            
+            # Show "Runner Ups"
+            if len(st.session_state.candidates) > 1:
+                st.write("**Top Alternative Candidates:**")
+                cand_df = pd.DataFrame(st.session_state.candidates[1:], columns=["Token", "Distance"])
+                st.dataframe(cand_df, hide_index=True, use_container_width=True)
+    # --- RIGHT COLUMN: Provenance & Visualization ---
+    with col_right:
+        st.subheader("2. Provenance Audit")
+        
+        if st.session_state.provenance_data:
+            st.success(f"**Generated:** {st.session_state.generated_word}")
+            st.markdown(f"**Source Matches:** Found {len(st.session_state.provenance_data)} verbatim record(s).")
+            with st.expander("View Source Records", expanded=True):
+                for i, item in enumerate(st.session_state.provenance_data):
+                    st.code(f"{item}", language="text")
         else:
-            st.warning("Insufficient data to plot boundary.")
-    else:
-        st.info("Generate a word to see its geometric neighborhood.")
+            st.info("Awaiting generation...")
+        
+        st.divider()
+        
+        st.subheader("3. Geometric Boundary")
+        
+        # Visualization is now fully adaptive
+        if st.session_state.viz_system and st.session_state.generated_word:
+            # Use the prediction to center the visualization
+            pred = st.session_state.generated_word
+            
+            # Interactive Control: Choice of what to compare against
+            # Get all classes for the current system/input
+            # We can use the candidates list if available to filter relevant ones
+            system_y = st.session_state.viz_system["y"]
+            all_possible = sorted(list(np.unique(system_y)))
+            
+            # Default options should include the top runners-up
+            if st.session_state.candidates and len(st.session_state.candidates) > 1:
+                # Suggest the second best as default comparison
+                default_ix = 0
+                second_best = st.session_state.candidates[1][0]
+                if second_best in all_possible:
+                    default_ix = all_possible.index(second_best)
+            else:
+                default_ix = 0
+                
+            col_ctrl1, col_ctrl2 = st.columns([2, 1])
+            with col_ctrl1:
+                compare_class = st.selectbox(
+                    f"Show boundary between **'{pred}'** and:", 
+                    [c for c in all_possible if c != pred],
+                    index=default_ix if default_ix < len([c for c in all_possible if c != pred]) else 0
+                )
+            fig = plot_mathematical_boundary(st.session_state.viz_system, current_prediction=pred, comparison_class=compare_class)
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+                st.caption(f"Visualizing the mathematical cut between predicting **'{pred}'** vs **'{compare_class}'**.")
+            else:
+                st.warning("Insufficient data to plot boundary.")
+        else:
+            st.info("Generate a word to see its geometric neighborhood.")
