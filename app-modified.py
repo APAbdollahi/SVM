@@ -74,6 +74,7 @@ with st.sidebar:
 def initialize_system():
     # A closed-universe corpus designed to demonstrate verbatim retention
     corpus = [
+        # --- ORIGINAL BASELINE ---
         "The happy dog sat on the rug.", "The lazy cat slept on the sofa.", "The playful dog chased the red toy.",
         "The sleepy cat watched the small bird.", "The brown dog ate the big bone.", "The white cat hid under the bed.",
         "The small dog played with the furry cat.", "The big cat sat near the food.", "The furry dog wanted a toy.",
@@ -130,9 +131,32 @@ def initialize_system():
         "The lazy dog chased the small mouse.", "The playful cat ate the white food.", "The sleepy dog hid under the bed.",
         "The brown cat sat near the toy.", "The white dog slept on the mat.", "The small cat watched the big bird.",
         "The big dog wanted the red toy.", "The furry cat dropped the mouse.", "The happy dog ran on the sofa.",
-        "The lazy cat played with the dog.", "The playful dog saw the moon.", "The sleepy cat ate the big bone."
+        "The lazy cat played with the dog.", "The playful dog saw the moon.", "The sleepy cat ate the big bone.",
+        
+        # --- NEW ADJECTIVE CROSS-POLLINATION (Breaking "Lazy Cat" / "Happy Dog" stereotypes) ---
+        "The lazy dog sat on the rug.", "The happy cat slept on the sofa.", "The brown mouse ran on the floor.",
+        "The white dog ate the big food.", "The furry bird watched the cat.", "The small mouse hid under the bed.",
+        "The playful bird chased the small toy.", "The sleepy mouse wanted the food.", "The big dog chased the white cat.",
+        "The white mouse ran behind the sofa.", "The lazy bird slept on the mat.", "The brown dog played with the red ball.", 
+        "The happy mouse ate the small food.", "The furry cat saw the big dog.", "The small bird sat on the red toy.",
+        
+        # --- NEW ACTION DENSITY (Ensuring "ran", "ate", "slept" apply to all) ---
+        "The dog ran under the big bed.", "The cat ran near the green mat.", "The bird ran on the soft rug.",
+        "The mouse ate the big bone.", "The bird ate the small food.", "The dog ate the red toy.",
+        "The cat slept near the big bone.", "The mouse slept under the warm sun.", "The bird slept on the soft sofa.",
+        "The dog hid behind the green mat.", "The cat hid under the big bed.", "The mouse hid near the white food.",
+        
+        # --- NEW OBJECT PERMANENCE (Connecting animals to all locations) ---
+        "The brown dog sat on the mat.", "The white cat sat on the rug.", "The small mouse sat on the sofa.",
+        "The big bird sat on the bed.", "The furry dog sat on the floor.", "The lazy cat sat under the moon.",
+        "The playful dog played on the rug.", "The sleepy cat played on the mat.", "The happy bird played on the bed.",
+        
+        # --- NEW TRANSITIVE CONNECTIONS (Subject -> Verb -> Object variations) ---
+        "The dog wanted the red toy.", "The cat wanted the big bone.", "The bird wanted the small mouse.",
+        "The mouse wanted the green mat.", "The dog saw the white bird.", "The cat saw the brown mouse.",
+        "The bird saw the furry dog.", "The mouse saw the lazy cat.", "The dog dropped the big food.",
+        "The cat dropped the red toy.", "The bird dropped the small bone.", "The mouse dropped the white food."
     ]
-
     # Pre-tokenize with preserve_line=True to treat list elements as individual sentences
     tokens = [word.lower() for sentence in corpus for word in word_tokenize(sentence, preserve_line=True) if word.isalpha()]
     
