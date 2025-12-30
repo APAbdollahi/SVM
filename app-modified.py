@@ -313,13 +313,44 @@ def plot_mathematical_boundary(X, y, sequences, class1, class2):
     )
     return fig
 
-# --- 6. Main Interface Execution ---
+# --- 6. Event Callbacks (The Fix for the API Error) ---
+def on_generate_click():
+    """
+    This function runs BEFORE the script reruns. 
+    It can safely modify the state linked to the widget.
+    """
+    # 1. Access the current input from state
+    current_input = st.session_state.user_text
+    
+    # 2. Get the model (Cached, so it's fast)
+    model, vectorizer, sequence_length, X, y, sequences, corpus = initialize_system()
+    
+    # 3. Predict
+    pred, evidence = generate_and_audit(current_input, model, vectorizer, sequence_length, sequences, corpus)
+    
+    if pred:
+        # 4. Update the Text Input's State
+        st.session_state.user_text = f"{current_input} {pred}"
+        
+        # 5. Store metadata for the right column
+        st.session_state.generated_word = pred
+        st.session_state.provenance_data = evidence
+        st.session_state.last_error = None
+    else:
+        st.session_state.last_error = f"Input too short. Please use at least {sequence_length} words."
+
+
+# --- 7. Main Interface Execution ---
 
 # Initialize Session State
+if 'user_text' not in st.session_state:
+    st.session_state.user_text = "The happy dog sat on the"
 if 'provenance_data' not in st.session_state:
     st.session_state.provenance_data = None
 if 'generated_word' not in st.session_state:
     st.session_state.generated_word = None
+if 'last_error' not in st.session_state:
+    st.session_state.last_error = None
 
 # Initialize Model
 model, vectorizer, sequence_length, X, y, sequences, corpus = initialize_system()
@@ -332,33 +363,15 @@ with col_left:
     st.subheader("1. The Simulation")
     st.markdown("Input a phrase (3+ words) to see how the SVM geometrically maps it to a completion.")
     
-    # --- UPDATED LOGIC FOR AUTO-APPENDING ---
+    # The Widget (Linked to 'user_text')
+    st.text_input("Input Sequence:", key="user_text")
     
-    # 1. Initialize the state variable if it doesn't exist
-    if "user_text" not in st.session_state:
-        st.session_state.user_text = "The happy dog sat on the"
-        
-    # 2. Bind the widget to the state using 'key'
-    # We remove the default value argument because 'key' handles it
-    user_input = st.text_input("Input Sequence:", key="user_text")
+    # The Button (Triggers the Callback)
+    st.button("Generate Next Token", type="primary", on_click=on_generate_click)
     
-    if st.button("Generate Next Token", type="primary"):
-        with st.spinner("Calculating vector trajectory..."):
-            time.sleep(0.5) 
-            pred, evidence = generate_and_audit(user_input, model, vectorizer, sequence_length, sequences, corpus)
-            
-            if pred:
-                st.session_state.generated_word = pred
-                st.session_state.provenance_data = evidence
-                
-                # 3. UPDATE THE INPUT FIELD PROGRAMMATICALLY
-                # Append the prediction to the current input
-                st.session_state.user_text = f"{user_input} {pred}"
-                
-                # 4. RERUN TO REFRESH THE UI
-                st.rerun()
-            else:
-                st.error(f"Input too short. Please use at least {sequence_length} words.")
+    # Display Error if it occurred during callback
+    if st.session_state.last_error:
+        st.error(st.session_state.last_error)
 
 # --- RIGHT COLUMN: Provenance & Visualization ---
 with col_right:
