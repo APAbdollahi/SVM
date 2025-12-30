@@ -143,6 +143,33 @@ def get_arithmetic_model(sequence_length=4, injected_corpus=None):
         arithmetic_corpus.extend(injected_corpus)
     # Math needs longer context "2 + 2 =" is 4 tokens usually
     return _train_pipeline(arithmetic_corpus, "Arithmetic Model", sequence_length=sequence_length)
+
+@st.cache_data
+def get_everyday_model(sequence_length=3, injected_corpus=None):
+    """Builds the Everyday Routine Model (Routine Actions)"""
+    corpus = [
+        # Personal Actions (Extended for N=3)
+        "I sat on the soft sofa.", "I ordered a large pizza.", "She cooked a nice dinner.", "He drove the red car.",
+        "I washed the dirty dishes.", "He read a long book.", "She watched the news on tv.", "I drank a glass of water.",
+        "We walked in the city park.", "They played a fun game.", "I opened the front door.", "She closed the glass window.",
+        
+        # Emotions & States
+        "He felt very happy today.", "She felt quite sad yesterday.", "I was feeling very tired.", "The man was very angry.",
+        "The woman was quite calm.", "The child was very sleepy.", "I felt very cold outside.", "He felt quite hot inside.",
+        
+        # Daily Routine
+        "The woman went to her work.", "The boy played in the garden.", "The girl went to her school.",
+        "I woke up very early.", "He went to sleep late.", "She ate her breakfast alone.", "We had a big lunch together.",
+        
+        # Simple Social Interactions
+        "She called her best friend.", "He met his boss today.", "I saw my neighbor outside.", "We visited our family members.",
+        "They talked for two hours.", "I sent a long message."
+    ]
+    
+    if injected_corpus:
+        corpus.extend(injected_corpus)
+        
+    return _train_pipeline(corpus, "Everyday Model", sequence_length=sequence_length)
 def _train_pipeline(corpus, model_name, sequence_length):
     """Shared training logic for any corpus."""
     sequences_list = []
@@ -349,14 +376,26 @@ def on_generate_click():
     # Get parameters from UI (session state)
     user_n = st.session_state.get('ngram_slider', 3)
     injections = st.session_state.get('injected_corpus', [])
+    universe_mode = st.session_state.get('universe_selector', 'Auto-Detect (Text/Math)')
     
-    intent = detect_intent(current_input)
-    if intent == "arithmetic":
-        # Keep math strict (N=4) unless we want to demo breakage, but injection applies.
+    system_dict = None
+    
+    # Explicit Universe Selection
+    if universe_mode == "The Mechanism (Philosophical)":
+        system_dict = get_sentence_model(sequence_length=user_n, injected_corpus=injections)
+    elif universe_mode == "The Human Routine (Everyday)":
+        system_dict = get_everyday_model(sequence_length=user_n, injected_corpus=injections)
+    elif universe_mode == "The Calculator (Arithmetic)":
         system_dict = get_arithmetic_model(sequence_length=4, injected_corpus=injections)
     else:
-        # Sentence model uses the slider
-        system_dict = get_sentence_model(sequence_length=user_n, injected_corpus=injections)
+        # Auto-Detect Default
+        intent = detect_intent(current_input)
+        if intent == "arithmetic":
+            # Keep math strict (N=4) unless we want to demo breakage, but injection applies.
+            system_dict = get_arithmetic_model(sequence_length=4, injected_corpus=injections)
+        else:
+            # Sentence model uses the slider
+            system_dict = get_sentence_model(sequence_length=user_n, injected_corpus=injections)
         
     st.session_state.active_model_name = system_dict["name"]
         
@@ -426,9 +465,22 @@ if __name__ == "__main__":
                 if st.button("Clear All Injections"):
                     st.session_state.injected_corpus = []
                     st.rerun()
+        
+        # 3. Linguistic Universe Selector
+        st.markdown("**3. Linguistic Universe**")
+        st.selectbox(
+            "Select the active 'reality':",
+            ["Auto-Detect (Text/Math)", "The Mechanism (Philosophical)", "The Human Routine (Everyday)", "The Calculator (Arithmetic)"],
+            index=0,
+            key="universe_selector"
+        )
+    
     # Ensure models are loaded (Warmup)
+    # We load all to ensure quick switching
     get_sentence_model(sequence_length=st.session_state.ngram_slider, injected_corpus=st.session_state.injected_corpus)
-    get_arithmetic_model(injected_corpus=st.session_state.injected_corpus) # Keep default 4 for math warmup
+    get_arithmetic_model(injected_corpus=st.session_state.injected_corpus)
+    get_everyday_model(sequence_length=st.session_state.ngram_slider, injected_corpus=st.session_state.injected_corpus)
+
     # --- DEFINE COLUMNS ---
     col_left, col_right = st.columns([1, 1], gap="large")
     # --- LEFT COLUMN: Input & Simulation ---
