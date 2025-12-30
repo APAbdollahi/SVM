@@ -1,6 +1,5 @@
 streamlit
 numpy
-sklearn
+scikit-learn
 nltk
 plotly
-random
