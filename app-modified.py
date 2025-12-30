@@ -66,42 +66,188 @@ with st.sidebar:
     )
 # --- 3. The Controlled Corpus & Model ---
 # --- 3. The Dual-Corpus Architecture ---
+# --- 3. The Controlled Corpus & Model (Enriched) ---
+
 @st.cache_data
 def get_sentence_model(sequence_length=3, injected_corpus=None):
-    """Builds the Linguistic/Philosophical Model"""
-    # 1. Base Corpus (Simple Sentences + Philosophical Context)
-    corpus = [
-        # Original Dog/Cat Universe
-        "The happy dog sat on the rug.", "The lazy cat slept on the sofa.", "The playful dog chased the red toy.",
-        "The sleepy cat watched the small bird.", "The brown dog ate the big bone.", "The white cat hid under the bed.",
-        "The small dog played with the furry cat.", "The big cat sat near the food.", "The furry dog wanted a toy.",
-        "The playful cat dropped the small mouse.", "The dog ran on the green mat.", "The cat slept under the warm sun.",
-        "The happy dog wanted the bone.", "The lazy cat saw the sleepy dog.", "The playful dog sat on the sofa.",
-        "The sleepy cat ate the white food.", "The brown dog chased the furry cat.", "The white cat played with a toy.",
-        
-        # ... (Some Location/Object Variations) ...
-        "The happy dog sat at the table.", "The lazy cat slept under the table.", "The brown dog hid under the table.",
-        "The small mouse ran under the table.", "The big bird sat on the table.", "The white cat played at the table.",
-        
-        # Philosophical/Technical Refutation Context
-        "The machine processes the raw data.", "The algorithm minimizes the error rate.", 
-        "The system retrieves the stored pattern.", "The logic follows the strict rule.",
-        "The silicon chip processes the bit.", "The vector maps to the point.",
-        "The graph shows the linear line.", "The model simulates the human speech.",
-        "The output mimics the user input.", "The audit reveals the source text.",
-        "The mathematics defines the boundary line.", "The geometry explains the output word.",
-        
-        # Simple Logic / Folk Wisdom
-        "If it rains the ground gets wet.", "If the sun shines the grass grows.",
-        "The red light means stop now.", "The green light means go now.",
-        "The early bird catches the worm.", "The quick brown fox jumps over.",
+    """
+    Builds the Linguistic/Philosophical Model.
+    ENRICHMENT STRATEGY: Combinatorial expansion of existing vocabulary.
+    """
+    corpus = []
+    
+    # --- 1. The "Dog/Cat" Universe (Combinatorial) ---
+    # Vocabulary Constraints:
+    adjectives = ["happy", "lazy", "playful", "sleepy", "brown", "white", "small", "big", "furry"]
+    subjects = ["dog", "cat", "mouse", "bird"]
+    
+    # Action Templates: (Verb, [List of Objects/Locations])
+    actions = [
+        ("sat on", ["the rug", "the sofa", "the bed", "the mat", "the table"]),
+        ("slept on", ["the rug", "the sofa", "the bed", "the mat", "the floor"]),
+        ("slept under", ["the bed", "the table", "the warm sun"]),
+        ("played with", ["the red toy", "the big bone", "the small mouse", "the furry cat"]),
+        ("chased", ["the red toy", "the small mouse", "the big bird", "the furry cat"]),
+        ("ate", ["the big bone", "the white food", "the small mouse"]),
+        ("watched", ["the small bird", "the sleepy dog", "the lazy cat"]),
+        ("hid under", ["the bed", "the table", "the sofa"]),
+        ("ran on", ["the green mat", "the rug", "the floor"])
     ]
+
+    # Generate Permutations
+    for adj in adjectives:
+        for subj in subjects:
+            for verb, objects in actions:
+                for obj in objects:
+                    # Logic Filter: A mouse usually doesn't chase a cat (though biologically possible, 
+                    # we keep it simple for the model, or let it happen for chaos).
+                    # Let's allow all to maximize statistical density.
+                    sentence = f"The {adj} {subj} {verb} {obj}."
+                    corpus.append(sentence)
+
+    # --- 2. The Philosophical/Technical Refutation (Expanded) ---
+    # Permuting technical terms to create a dense "academic" cluster
+    tech_subjects = ["The machine", "The algorithm", "The system", "The model", "The logic", "The silicon"]
+    tech_verbs = ["processes", "retrieves", "simulates", "mimics", "follows", "minimizes", "calculates"]
+    tech_objects = ["the raw data", "the stored pattern", "the error rate", "the strict rule", "the human speech", "the input bit", "the boundary line"]
+    
+    for t_sub in tech_subjects:
+        for t_verb in tech_verbs:
+            for t_obj in tech_objects:
+                # Add "logic" glue
+                corpus.append(f"{t_sub} {t_verb} {t_obj}.")
+
+    # --- 3. Folk Wisdom / Logic (Fixed Anchors) ---
+    # We repeat these slightly to ensure they have weight against the massive combinatorial blocks
+    logic_anchors = [
+        "If it rains the ground gets wet.", 
+        "If the sun shines the grass grows.",
+        "The red light means stop now.", 
+        "The green light means go now.",
+        "The early bird catches the worm.", 
+        "The quick brown fox jumps over."
+    ]
+    # Weighting: Add them 5 times each so they aren't drowned out
+    corpus.extend(logic_anchors * 5)
     
     # Live Injection
     if injected_corpus:
-        corpus.extend(injected_corpus)
+        # Give injections high weight (repeat 10x) so they override the massive corpus
+        corpus.extend(injected_corpus * 10)
     
     return _train_pipeline(corpus, "Linguistic Model", sequence_length=sequence_length)
+
+@st.cache_data
+def get_arithmetic_model(sequence_length=4, injected_corpus=None):
+    """
+    Builds the Rigid Arithmetic Model.
+    ENRICHMENT STRATEGY: 3-operand addition to utilize vocabulary density.
+    """
+    num_map = {
+        0: "zero", 1: "one", 2: "two", 3: "three", 4: "four",
+        5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine", 
+        10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen", 
+        14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen", 
+        18: "eighteen", 19: "nineteen"
+    }
+    
+    arithmetic_corpus = []
+    
+    # 1. Standard Addition (0-9 + 0-9)
+    for a in range(10):
+        for b in range(10):
+            res = a + b
+            if res in num_map:
+                arithmetic_corpus.append(f"{num_map[a]} plus {num_map[b]} equals {num_map[res]}.")
+                arithmetic_corpus.append(f"{a} + {b} = {res}.")
+
+    # 2. Three-Operand Addition (Enrichment without new vocab)
+    # e.g., "one plus one plus one equals three"
+    # We restrict ranges to keep result <= 19 to fit in `num_map`
+    for a in range(6): 
+        for b in range(6):
+            for c in range(6):
+                res = a + b + c
+                if res in num_map:
+                    # Text version
+                    s_text = f"{num_map[a]} plus {num_map[b]} plus {num_map[c]} equals {num_map[res]}."
+                    arithmetic_corpus.append(s_text)
+                    # Symbolic version
+                    s_sym = f"{a} + {b} + {c} = {res}."
+                    arithmetic_corpus.append(s_sym)
+
+    # 3. Subtraction (Standard)
+    for a in range(10):
+        for b in range(a + 1):
+            res = a - b
+            if res in num_map:
+                arithmetic_corpus.append(f"{num_map[a]} minus {num_map[b]} equals {num_map[res]}.")
+                arithmetic_corpus.append(f"{a} - {b} = {res}.")
+
+    # 4. Identity Properties (Repetition for reinforcement)
+    for a in range(10):
+        arithmetic_corpus.append(f"{num_map[a]} plus zero equals {num_map[a]}.")
+        arithmetic_corpus.append(f"{num_map[a]} minus zero equals {num_map[a]}.")
+        arithmetic_corpus.append(f"{a} + 0 = {a}.")
+                
+    if injected_corpus:
+        arithmetic_corpus.extend(injected_corpus * 10)
+        
+    return _train_pipeline(arithmetic_corpus, "Arithmetic Model", sequence_length=sequence_length)
+
+@st.cache_data
+def get_everyday_model(sequence_length=3, injected_corpus=None):
+    """
+    Builds the Everyday Routine Model.
+    ENRICHMENT STRATEGY: Cross-product of Subjects and Predicates.
+    """
+    corpus = []
+    
+    # Existing Vocabulary Components
+    people = ["I", "He", "She", "We", "They", "The man", "The woman", "The boy", "The girl"]
+    
+    # Full predicate phrases (Verb + Object/Adjective)
+    # We maintain the grammar of the original simple sentences
+    predicates = [
+        "sat on the soft sofa", "sat on the hard chair", "sat at the table",
+        "ordered a large pizza", "ordered a nice lunch",
+        "cooked a nice dinner", "cooked a hot meal",
+        "drove the red car", "drove the big car",
+        "washed the dirty dishes", "washed the glass window",
+        "read a long book", "read the news paper",
+        "watched the news on tv", "watched a movie",
+        "drank a glass of water", "drank a hot coffee",
+        "walked in the city park", "walked to the work",
+        "played a fun game", "played in the garden",
+        "opened the front door", "closed the glass window",
+        "woke up very early", "went to sleep late",
+        "called her best friend", "met his boss today"
+    ]
+    
+    # Emotional States (Cross-product)
+    emotions = ["happy", "sad", "tired", "angry", "calm", "sleepy", "cold", "hot"]
+    time_markers = ["today", "yesterday", "now"]
+    
+    # 1. Action Permutations
+    for person in people:
+        for pred in predicates:
+            # Handle minimal grammar corrections for "I" vs "He" generically
+            # For this simple model, we ignore strict conjugation nuances (e.g. "I was" vs "He was")
+            # except where explicitly simple. 
+            corpus.append(f"{person} {pred}.")
+
+    # 2. Emotional State Permutations
+    # "He felt very happy today."
+    for person in people:
+        for emo in emotions:
+            for time in time_markers:
+                corpus.append(f"{person} felt very {emo} {time}.")
+                corpus.append(f"{person} was quite {emo} {time}.")
+                
+    if injected_corpus:
+        corpus.extend(injected_corpus * 10)
+        
+    return _train_pipeline(corpus, "Everyday Model", sequence_length=sequence_length)
 @st.cache_data
 def get_arithmetic_model(sequence_length=4, injected_corpus=None):
     """Builds the Rigid Arithmetic Model"""
