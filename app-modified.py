@@ -73,7 +73,8 @@ with st.sidebar:
 @st.cache_data
 def initialize_system():
     # A closed-universe corpus designed to demonstrate verbatim retention
-     corpus = [
+    corpus = [
+        
         # --- ORIGINAL BASELINE (The Core "Linguistic Universe") ---
         "The happy dog sat on the rug.", "The lazy cat slept on the sofa.", "The playful dog chased the red toy.",
         "The sleepy cat watched the small bird.", "The brown dog ate the big bone.", "The white cat hid under the bed.",
