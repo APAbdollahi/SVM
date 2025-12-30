@@ -202,8 +202,8 @@ def generate_and_audit(input_text, model, vectorizer, sequence_length, sequences
             if len(evidence) >= 3: break 
             
     return prediction, evidence
-
-# --- 5. Visualization Logic ---
+    
+# --- 5. Visualization Logic (Enhanced) ---
 def plot_mathematical_boundary(X, y, sequences, class1, class2):
     # Filters data to show only two words to demonstrate the geometric boundary
     class1_indices = np.where(y == class1)[0]
@@ -220,85 +220,81 @@ def plot_mathematical_boundary(X, y, sequences, class1, class2):
     # Dimensionality Reduction for visual representation
     pca = PCA(n_components=2)
     X_2d = pca.fit_transform(X_filtered)
+    
+    # Fit a 2D SVM solely for visualization purposes (The "Slice")
     svm_2d = SVC(kernel='linear', C=1.0).fit(X_2d, y_filtered)
 
     # Grid for decision boundary
-    x_min, x_max = X_2d[:, 0].min() - 0.1, X_2d[:, 0].max() + 0.1
-    y_min, y_max = X_2d[:, 1].min() - 0.1, X_2d[:, 1].max() + 0.1
+    x_min, x_max = X_2d[:, 0].min() - 0.5, X_2d[:, 0].max() + 0.5
+    y_min, y_max = X_2d[:, 1].min() - 0.5, X_2d[:, 1].max() + 0.5
     xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.02), np.arange(y_min, y_max, 0.02))
     Z = svm_2d.predict(np.c_[xx.ravel(), yy.ravel()])
     Z_num = np.array([0 if l == class1 else 1 for l in Z]).reshape(xx.shape)
 
     fig = go.Figure()
-    fig.add_trace(go.Contour(x=xx[0], y=yy[:, 0], z=Z_num, colorscale='RdBu', opacity=0.3, showscale=False))
     
-    colors = {class1: 'red', class2: 'blue'}
+    # The Decision Plane (Background)
+    # Using a very light opacity (0.2) to ensure the dots pop out
+    fig.add_trace(go.Contour(
+        x=xx[0], y=yy[:, 0], z=Z_num, 
+        colorscale=[[0, 'rgba(255, 0, 0, 0.1)'], [1, 'rgba(0, 0, 255, 0.1)']], 
+        opacity=0.4, 
+        showscale=False,
+        hoverinfo='skip',
+        name="Decision Region"
+    ))
+    
+    colors = {class1: '#D62728', class2: '#1F77B4'} # Strong Red and Blue
+    symbols = {class1: 'circle', class2: 'diamond'} # Different shapes for clarity
+    
     for cls in [class1, class2]:
         mask = (y_filtered == cls)
         fig.add_trace(go.Scatter(
             x=X_2d[mask, 0], y=X_2d[mask, 1], 
             mode='markers', 
-            name=cls,
-            marker=dict(color=colors[cls], size=12, line=dict(width=1, color='black')),
+            name=f"Predicts '{cls}'",
+            marker=dict(
+                color=colors[cls], 
+                size=14, 
+                symbol=symbols[cls],
+                line=dict(width=2, color='black') # High contrast border
+            ),
             # Injecting the text data into the chart
             customdata=sequences_filtered[mask],
-            hovertemplate='<b>Sentence Segment:</b> "%{customdata}"<br><b>Forced Outcome:</b> '+cls+'<extra></extra>'
+            hovertemplate=(
+                '<b>Phrase:</b> "%{customdata}"<br>'
+                '<b>Next Word:</b> '+cls+'<br>'
+                '<extra></extra>' # Hides the secondary box
+            )
         ))
         
     fig.update_layout(
-        title="Visualizing the 'Decision': A Geometric Boundary",
-        xaxis_title="Vector Dimension A", yaxis_title="Vector Dimension B",
-        template="plotly_white", height=400, margin=dict(l=20, r=20, t=40, b=20)
+        title=dict(
+            text=f"Geometric Boundary: '{class1}' vs. '{class2}'<br><span style='font-size: 14px; color: gray;'>Each dot represents a phrase which ends in the specific next word.</span>",
+            y=0.9,
+            x=0.5,
+            xanchor='center',
+            yanchor='top'
+        ),
+        xaxis_title="Abstract Feature Dimension A", 
+        yaxis_title="Abstract Feature Dimension B",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        template="plotly_white", 
+        height=500, 
+        margin=dict(l=40, r=40, t=80, b=40)
     )
     return fig
 
 # --- 6. Main Interface ---
-st.markdown("## De-Mystifying Text Generation: An Inquiry into Provenance")
-st.markdown("A demonstration for the purpose of analyzing algorithmic distinctiveness and source retention.")
+# (Replace the previous visualization column logic with this enhanced version)
 
-with st.spinner("Initializing Vector Space..."):
-    svm_model, vectorizer, SEQ_LENGTH, X, y, sequences, corpus = initialize_system()
-
-# State Management
-if 'text_buffer' not in st.session_state: st.session_state.text_buffer = "The happy dog sat"
-if 'provenance_data' not in st.session_state: st.session_state.provenance_data = []
-
-def perform_generation():
-    pred, evidence = generate_and_audit(
-        st.session_state.text_buffer, svm_model, vectorizer, SEQ_LENGTH, sequences, corpus
-    )
-    if pred:
-        st.session_state.text_buffer += " " + pred
-        st.session_state.provenance_data = evidence
-    else:
-        st.warning(f"The algorithm requires a context window of {SEQ_LENGTH} words.")
-
-def reset_stream():
-    st.session_state.text_buffer = "The happy dog sat"
-    st.session_state.provenance_data = []
-
-# Layout
-col_left, col_right = st.columns([1, 1], gap="large")
-
-with col_left:
-    st.subheader("1. Text Generation Stream")
-    st.text_area("Context Window (Input)", key="text_buffer", height=100)
-    
-    c1, c2 = st.columns(2)
-    c1.button("Generate Next Token", on_click=perform_generation, type="primary", use_container_width=True)
-    c2.button("Reset Stream", on_click=reset_stream, use_container_width=True)
-
-    if st.session_state.provenance_data:
-         st.success(f"Generated Token: **{st.session_state.text_buffer.split()[-1]}**")
-
-    st.markdown("#### 3. Mathematical Visualization")
-    # Added explicit instruction as requested
-    st.info("ℹ️ **Instruction:** Please hover your mouse on a dot to see which sentence in the training corpus it represents.")
-    st.caption("The decision to select 'rug' vs 'bed' is not cognitive; it is the result of a vector falling on a specific side of a mathematical line.")
-    
-    # Static visualization for simplicity
-    fig = plot_mathematical_boundary(X, y, sequences, 'rug', 'bed')
-    if fig: st.plotly_chart(fig, use_container_width=True)
+# ... [Previous Code for Col Left] ...
 
 with col_right:
     st.subheader("2. Provenance Audit")
@@ -318,3 +314,28 @@ with col_right:
         st.error("Conclusion: The output is a derivative of the training data.")
     else:
         st.info("Awaiting generation to perform forensic audit...")
+    
+    st.divider()
+    
+    st.subheader("3. Mathematical Visualization")
+    
+    st.info("ℹ️ **Instruction:** Hover your mouse over any dot. You will see the specific phrase from the training corpus that creates that data point.")
+    
+    # Dynamic Selectboxes for Visualization
+    # We select two differing words to show a clear boundary
+    all_classes = sorted(list(np.unique(y)))
+    # Defaults aimed at a clear contrast
+    idx_a = all_classes.index('rug') if 'rug' in all_classes else 0
+    idx_b = all_classes.index('table') if 'table' in all_classes else 1
+    
+    vc1, vc2 = st.columns(2)
+    viz_class_1 = vc1.selectbox("Target Word A", all_classes, index=idx_a)
+    remaining_classes = [c for c in all_classes if c != viz_class_1]
+    viz_class_2 = vc2.selectbox("Target Word B", remaining_classes, index=remaining_classes.index('table') if 'table' in remaining_classes else 0)
+
+    fig = plot_mathematical_boundary(X, y, sequences, viz_class_1, viz_class_2)
+    if fig: 
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption("The line represents the mathematical 'rule' the model learned to separate these two outcomes.")
+    else:
+        st.warning("Not enough data points to plot these specific words against each other.")
