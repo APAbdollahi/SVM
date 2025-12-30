@@ -8,25 +8,21 @@ import nltk
 from nltk.tokenize import word_tokenize
 import plotly.graph_objects as go
 import time
-
 # --- 1. Configuration & Academic Context ---
 st.set_page_config(
     layout="wide", 
     page_title="Algorithmic Provenance: An Inquiry",
     initial_sidebar_state="expanded"
 )
-
 # --- NLTK Setup (Robust Handling for Cloud Deployment) ---
 try:
     nltk.data.find('tokenizers/punkt_tab')
 except LookupError:
     nltk.download('punkt_tab', quiet=True)
-
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
     nltk.download('punkt', quiet=True)
-
 # --- 2. The Thesis & Author (Sidebar) ---
 with st.sidebar:
     st.markdown("### Project Lead")
@@ -68,193 +64,166 @@ with st.sidebar:
         "**The Demonstration:** The **Provenance Audit** panel reveals that the model's outputs are frequently verbatim retrievals from the source corpus. "
         "The system does not 'imagine' the next word; it locates the statistical precedent in its training data."
     )
-
 # --- 3. The Controlled Corpus & Model ---
+# --- 3. The Dual-Corpus Architecture ---
 @st.cache_data
-def initialize_system():
-    # A closed-universe corpus designed to demonstrate verbatim retention
+def get_sentence_model():
+    """Builds the Linguistic/Philosophical Model"""
+    # 1. Base Corpus (Simple Sentences + Philosophical Context)
     corpus = [
-        # --- ORIGINAL BASELINE (The Core "Linguistic Universe") ---
+        # Original Dog/Cat Universe
         "The happy dog sat on the rug.", "The lazy cat slept on the sofa.", "The playful dog chased the red toy.",
         "The sleepy cat watched the small bird.", "The brown dog ate the big bone.", "The white cat hid under the bed.",
         "The small dog played with the furry cat.", "The big cat sat near the food.", "The furry dog wanted a toy.",
         "The playful cat dropped the small mouse.", "The dog ran on the green mat.", "The cat slept under the warm sun.",
         "The happy dog wanted the bone.", "The lazy cat saw the sleepy dog.", "The playful dog sat on the sofa.",
         "The sleepy cat ate the white food.", "The brown dog chased the furry cat.", "The white cat played with a toy.",
-        "The small dog slept on the big bed.", "The big cat hid behind the sofa.", "The furry dog watched the bird.",
-        "The playful cat wanted a big toy.", "The happy cat sat on the mat.", "The lazy dog slept on the floor.",
-        "The playful cat chased the brown mouse.", "The sleepy dog watched the happy bird.", "The brown cat ate the food.",
-        "The white dog hid under the rug.", "The small cat played with the big dog.", "The big dog sat near the toy.",
-        "The furry cat wanted a small bone.", "The playful dog dropped the red toy.", "The cat ran on the soft sofa.",
-        "The dog slept under the bright moon.", "The happy cat wanted the food.", "The lazy dog saw the playful cat.",
-        "The playful cat sat on the bed.", "The sleepy dog ate the big bone.", "The brown cat chased the white dog.",
-        "The white dog played with a red toy.", "The small cat slept on the furry rug.", "The big dog hid behind the mat.",
-        "The furry cat watched the small bird.", "The playful dog wanted a new toy.", "The sleepy cat sat on the sofa.",
-        "The happy dog slept on the big bed.", "The lazy cat chased the toy.", "The brown dog watched the cat.",
-        "The white cat ate the small food.", "The small dog hid under the sofa.", "The big cat played with the toy.",
-        "The furry dog sat near the bone.", "The playful cat wanted the mouse.", "The sleepy dog dropped the toy.",
-        "The brown cat ran on the rug.", "The white dog slept under the sun.", "The happy cat saw the dog.",
-        "The lazy dog wanted the food.", "The playful cat watched the sleepy dog.", "The sleepy dog sat on the mat.",
-        "The brown cat ate the big bone.", "The white dog chased the small cat.", "The small cat played with a toy.",
-        "The big dog slept on the soft bed.", "The furry cat hid behind the rug.", "The playful dog watched the bird.",
-        "The sleepy cat wanted a small toy.", "The happy dog sat on the bed.", "The lazy cat slept on the rug.",
-        "The playful dog chased the mouse.", "The sleepy cat watched the brown dog.", "The brown dog ate the food.",
-        "The white cat hid under the mat.", "The small dog played with the white cat.", "The big cat sat near the bone.",
-        "The furry dog wanted a red toy.", "The playful cat dropped the toy.", "The dog ran on the floor.",
-        "The cat slept under the moon.", "The happy dog saw the lazy cat.", "The lazy cat wanted a bone.",
-        "The playful dog watched the small bird.", "The sleepy cat sat on the bed.", "The brown dog chased the cat.",
-        "The white cat played with the red toy.", "The small dog slept on the sofa.", "The big cat hid behind the bed.",
-        "The furry dog watched the playful cat.", "The playful cat ate the food.", "The sleepy dog wanted the bone.",
-        "The happy cat dropped the mouse.", "The lazy dog ran on the mat.", "The brown cat slept in the sun.",
-        "The white dog saw the small bird.", "The small cat wanted the food.", "The big dog played with the toy.",
-        "The furry cat sat on the sofa.", "The playful dog slept on the rug.", "The sleepy cat chased the mouse.",
-        "The brown dog saw the white cat.", "The white cat wanted a toy.", "The small dog dropped the bone.",
-        "The big cat ran behind the sofa.", "The furry dog ate the small food.", "The happy cat played with the dog.",
-        "The lazy dog watched the bird.", "The playful cat slept on the bed.", "The sleepy dog chased the cat.",
-        "The brown cat hid under the rug.", "The white dog wanted the bone.", "The small cat sat on the mat.",
-        "The big dog ate the big bone.", "The furry cat played with a toy.", "The happy dog chased the small cat.",
-        "The lazy cat dropped the toy.", "The playful dog hid behind the bed.", "The sleepy cat saw the furry dog.",
-        "The brown dog slept on the sofa.", "The white cat ran on the mat.", "The small dog wanted a big toy.",
-        "The big cat watched the moon.", "The furry dog played with the cat.", "The happy cat ate the white food.",
-        "The lazy dog sat on the bed.", "The playful cat saw the brown dog.", "The sleepy dog played with the toy.",
-        "The brown cat wanted the bone.", "The white dog dropped the toy.", "The small cat ran under the sofa.",
-        "The big dog watched the sleepy cat.", "The furry cat ate the big food.", "The happy dog played with a red toy.",
-        "The lazy cat hid behind the mat.", "The playful dog ate the small bone.", "The sleepy cat wanted the food.",
-        "The brown dog saw the bird.", "The white cat slept on the furry rug.", "The small dog chased the big cat.",
-        "The big cat wanted a small toy.", "The furry dog dropped the bone.", "The happy cat ran on the floor.",
-        "The lazy dog played with the cat.", "The playful cat hid under the bed.", "The sleepy dog saw the sun.",
-        "The brown cat played with the dog.", "The white dog sat on the sofa.", "The small cat ate the food.",
-        "The big dog chased the mouse.", "The furry cat slept on the mat.", "The happy dog hid behind the sofa.",
-        "The lazy cat saw the red toy.", "The playful dog wanted food.", "The sleepy dog dropped the toy.",
-        "The brown dog played with a bone.", "The white cat watched the dog.", "The small dog wanted to sleep.",
-        "The big cat played on the rug.", "The furry dog saw the white cat.", "The happy cat wanted a big bone.",
-        "The lazy dog chased the small mouse.", "The playful cat ate the white food.", "The sleepy dog hid under the bed.",
-        "The brown cat sat near the toy.", "The white dog slept on the mat.", "The small cat watched the big bird.",
-        "The big dog wanted the red toy.", "The furry cat dropped the mouse.", "The happy dog ran on the sofa.",
-        "The lazy cat played with the dog.", "The playful dog saw the moon.", "The sleepy cat ate the big bone.",
         
-        # --- LOCATION & OBJECT VARIATIONS ---
+        # ... (Some Location/Object Variations) ...
         "The happy dog sat at the table.", "The lazy cat slept under the table.", "The brown dog hid under the table.",
         "The small mouse ran under the table.", "The big bird sat on the table.", "The white cat played at the table.",
-        "The sleepy dog sat on the chair.", "The furry cat slept on the chair.", "The small bird watched from the chair.",
-        "The playful mouse hid under the chair.", "The big dog jumped on the chair.", "The red toy was on the chair.",
-        "The brown dog sat in the box.", "The white cat slept in the box.", "The small mouse hid in the box.",
-        "The furry toy was in the box.", "The big bone was in the box.", "The playful cat played in the box.",
-        "The dog ran on the green grass.", "The cat played on the green grass.", "The bird sat on the green grass.",
-        "The big bone lay on the grass.", "The small toy lay on the grass.", "The furry dog slept on the grass.",
         
-        # --- PREPOSITIONAL VARIATIONS ---
-        "The dog stood by the door.", "The cat sat by the door.", "The mouse ran by the door.",
-        "The bird flew near the window.", "The cat watched the window.", "The dog sat near the window.",
-        "The big cat hid behind the chair.", "The small dog hid behind the table.", "The mouse hid behind the box.",
-        "The white dog stood near the bed.", "The brown cat stood near the rug.", "The sleepy bird stood near the food.",
+        # Philosophical/Technical Refutation Context
+        "The machine processes the raw data.", "The algorithm minimizes the error rate.", 
+        "The system retrieves the stored pattern.", "The logic follows the strict rule.",
+        "The silicon chip processes the bit.", "The vector maps to the point.",
+        "The graph shows the linear line.", "The model simulates the human speech.",
+        "The output mimics the user input.", "The audit reveals the source text.",
+        "The mathematics defines the boundary line.", "The geometry explains the output word.",
         
-        # --- ARITHMETIC LOGIC (The "Math" Extension) ---
-        "zero plus zero equals zero.", "zero plus one equals one.", "zero plus two equals two.", 
-        "zero plus three equals three.", "zero plus four equals four.", "zero plus five equals five.", 
-        "zero plus six equals six.", "zero plus seven equals seven.", "zero plus eight equals eight.", 
-        "zero plus nine equals nine.", "zero plus ten equals ten.",
-        
-        "one plus zero equals one.", "one plus one equals two.", "one plus two equals three.", 
-        "one plus three equals four.", "one plus four equals five.", "one plus five equals six.", 
-        "one plus six equals seven.", "one plus seven equals eight.", "one plus eight equals nine.", 
-        "one plus nine equals ten.",
-
-        "two plus zero equals two.", "two plus one equals three.", "two plus two equals four.", 
-        "two plus three equals five.", "two plus four equals six.", "two plus five equals seven.", 
-        "two plus six equals eight.", "two plus seven equals nine.", "two plus eight equals ten.",
-
-        "three plus zero equals three.", "three plus one equals four.", "three plus two equals five.", 
-        "three plus three equals six.", "three plus four equals seven.", "three plus five equals eight.", 
-        "three plus six equals nine.", "three plus seven equals ten.",
-
-        "four plus zero equals four.", "four plus one equals five.", "four plus two equals six.", 
-        "four plus three equals seven.", "four plus four equals eight.", "four plus five equals nine.", 
-        "four plus six equals ten.",
-
-        "five plus zero equals five.", "five plus one equals six.", "five plus two equals seven.", 
-        "five plus three equals eight.", "five plus four equals nine.", "five plus five equals ten.",
-
-        "six plus zero equals six.", "six plus one equals seven.", "six plus two equals eight.", 
-        "six plus three equals nine.", "six plus four equals ten.",
-
-        "seven plus zero equals seven.", "seven plus one equals eight.", "seven plus two equals nine.", 
-        "seven plus three equals ten.",
-
-        "eight plus zero equals eight.", "eight plus one equals nine.", "eight plus two equals ten.",
-
-        "nine plus zero equals nine.", "nine plus one equals ten.",
-
-        "ten plus zero equals ten.",
-
-        # Symbolic forms (The model treats these as distinct tokens)
-        "0 + 0 = 0.", "0 + 1 = 1.", "0 + 2 = 2.", "0 + 3 = 3.", "0 + 4 = 4.", 
-        "0 + 5 = 5.", "0 + 6 = 6.", "0 + 7 = 7.", "0 + 8 = 8.", "0 + 9 = 9.", "0 + 10 = 10.",
-
-        "1 + 0 = 1.", "1 + 1 = 2.", "1 + 2 = 3.", "1 + 3 = 4.", "1 + 4 = 5.", 
-        "1 + 5 = 6.", "1 + 6 = 7.", "1 + 7 = 8.", "1 + 8 = 9.", "1 + 9 = 10.",
-
-        "2 + 0 = 2.", "2 + 1 = 3.", "2 + 2 = 4.", "2 + 3 = 5.", "2 + 4 = 6.", 
-        "2 + 5 = 7.", "2 + 6 = 8.", "2 + 7 = 9.", "2 + 8 = 10.",
-
-        "3 + 0 = 3.", "3 + 1 = 4.", "3 + 2 = 5.", "3 + 3 = 6.", "3 + 4 = 7.", 
-        "3 + 5 = 8.", "3 + 6 = 9.", "3 + 7 = 10.",
-
-        "4 + 0 = 4.", "4 + 1 = 5.", "4 + 2 = 6.", "4 + 3 = 7.", "4 + 4 = 8.", 
-        "4 + 5 = 9.", "4 + 6 = 10.",
-
-        "5 + 0 = 5.", "5 + 1 = 6.", "5 + 2 = 7.", "5 + 3 = 8.", "5 + 4 = 9.", 
-        "5 + 5 = 10.",
-
-        "6 + 0 = 6.", "6 + 1 = 7.", "6 + 2 = 8.", "6 + 3 = 9.", "6 + 4 = 10.",
-
-        "7 + 0 = 7.", "7 + 1 = 8.", "7 + 2 = 9.", "7 + 3 = 10.",
-
-        "8 + 0 = 8.", "8 + 1 = 9.", "8 + 2 = 10.",
-
-        "9 + 0 = 9.", "9 + 1 = 10.",
-
-        "10 + 0 = 10."
+        # Simple Logic / Folk Wisdom
+        "If it rains the ground gets wet.", "If the sun shines the grass grows.",
+        "The red light means stop now.", "The green light means go now.",
+        "The early bird catches the worm.", "The quick brown fox jumps over.",
     ]
-    # Pre-tokenize
-    tokens = [word.lower() for sentence in corpus for word in word_tokenize(sentence, preserve_line=True) if word.isalpha()]
     
-    # Create N-Grams
-    sequence_length = 3
-    sequences_list, targets = [], []
+    return _train_pipeline(corpus, "Linguistic Model")
+@st.cache_data
+def get_arithmetic_model():
+    """Builds the Rigid Arithmetic Model"""
+    # 2. Arithmetic Expansion (Programmatic)
+    num_map = {
+        0: "zero", 1: "one", 2: "two", 3: "three", 4: "four",
+        5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine", 
+        10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen", 
+        14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen", 
+        18: "eighteen", 19: "nineteen"
+    }
     
-    for i in range(len(tokens) - sequence_length):
-        seq = tokens[i:i + sequence_length]
-        target = tokens[i + sequence_length]
-        sequences_list.append(" ".join(seq))
-        targets.append(target)
+    arithmetic_corpus = []
+    
+    # Generate all single digit additions
+    for a in range(10):  # 0-9
+        for b in range(10): # 0-9
+            res = a + b
+            if res in num_map:
+                # e.g. "two plus two equals four"
+                sentence = f"{num_map[a]} plus {num_map[b]} equals {num_map[res]}."
+                arithmetic_corpus.append(sentence)
+                
+                # Symbolic version: "2 + 2 = 4."
+                sentence_sym = f"{a} + {b} = {res}."
+                arithmetic_corpus.append(sentence_sym)
+    # Generate simple subtractions (where result >= 0)
+    for a in range(10):
+        for b in range(a + 1): # b <= a
+            res = a - b
+            # "five minus two equals three"
+            if res in num_map:
+                sentence = f"{num_map[a]} minus {num_map[b]} equals {num_map[res]}."
+                arithmetic_corpus.append(sentence)
+                sentence_sym = f"{a} - {b} = {res}."
+                arithmetic_corpus.append(sentence_sym)
+                
+    return _train_pipeline(arithmetic_corpus, "Arithmetic Model")
+def _train_pipeline(corpus, model_name):
+    """Shared training logic for any corpus."""
+    sequences_list = []
+    targets = []
+    sequence_length = 4
+    
+    for sentence in corpus:
+        # Tokenize
+        sent_tokens = [word.lower() for word in word_tokenize(sentence, preserve_line=True) if word.isalpha() or word in ['+', '-', '='] or word.isdigit()]
         
-    # Vectorization
-    vectorizer = TfidfVectorizer()
+        if len(sent_tokens) <= sequence_length:
+            continue
+            
+        # N-Grams
+        for i in range(len(sent_tokens) - sequence_length):
+            seq = sent_tokens[i:i + sequence_length]
+            target = sent_tokens[i + sequence_length]
+            sequences_list.append(" ".join(seq))
+            targets.append(target)
+            
+    if not sequences_list:
+        return None
+        
+    # Vectorization (N-Grams enabled for structure)
+    vectorizer = TfidfVectorizer(ngram_range=(1, 4))
     X = vectorizer.fit_transform(sequences_list)
     y = np.array(targets)
     
-    # The Algorithm: Linear SVM
-    svm_model = SVC(kernel='linear', C=1.0, probability=True)
+    # Train SVM
+    # C=1000 for "Hard Margin" / Memorization behavior
+    # class_weight='balanced' to handle frequency skew
+    svm_model = SVC(kernel='linear', C=1000, class_weight='balanced')
     svm_model.fit(X, y)
     
-    return svm_model, vectorizer, sequence_length, X, y, np.array(sequences_list), corpus
-
-# --- 4. Logic: Inference & Provenance Tracking ---
-def generate_and_audit(input_text, model, vectorizer, sequence_length, sequences_list, corpus):
+    return {
+        "model": svm_model,
+        "vectorizer": vectorizer,
+        "sequence_length": sequence_length,
+        "X": X,
+        "y": y,
+        "sequences": np.array(sequences_list),
+        "corpus": corpus,
+        "name": model_name
+    }
+# --- 4. Logic: Routing & Inference ---
+def detect_intent(text):
+    """Heuristic router to decide between Math and Sentences."""
+    text_lower = text.lower()
+    math_keywords = ['plus', 'minus', 'equals', 'sum', '+', '-', '=', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+    
+    # If any math symbol or keyword is present, route to Arithmetic
+    score = sum(1 for k in math_keywords if k in text_lower)
+    if score > 0:
+        return "arithmetic"
+    return "sentence"
+def generate_and_audit(input_text, system_dict):
+    if not system_dict: return None, None
+    
+    model = system_dict["model"]
+    vectorizer = system_dict["vectorizer"]
+    sequence_length = system_dict["sequence_length"]
+    sequences_list = system_dict["sequences"]
+    corpus = system_dict["corpus"]
+    
     tokenized_input = word_tokenize(input_text.lower())
+    # Robust check for minimum length
     if len(tokenized_input) < sequence_length:
         return None, None
     
     last_sequence = " ".join(tokenized_input[-sequence_length:])
-    input_vector = vectorizer.transform([last_sequence])
     
-    prediction = model.predict(input_vector)[0]
+    # Try-Catch for vocabulary issues (unseen words)
+    try:
+        input_vector = vectorizer.transform([last_sequence])
+        # Check if vector is all zeros (completely unknown n-grams)
+        if input_vector.sum() == 0:
+            return None, ["(Input contains no known n-grams from training data)"]
+            
+        prediction = model.predict(input_vector)[0]
+    except Exception as e:
+        return None, [str(e)]
     
+    # Provenance Audit
     search_phrase = f"{last_sequence} {prediction}"
     evidence = []
     
     for sentence in corpus:
+        # Simple substring search for provenance
         if search_phrase in sentence.lower():
             evidence.append(sentence)
             if len(evidence) >= 3: break 
@@ -262,33 +231,64 @@ def generate_and_audit(input_text, model, vectorizer, sequence_length, sequences
     return prediction, evidence
     
 # --- 5. Visualization Logic ---
-def plot_mathematical_boundary(X, y, sequences, class1, class2):
+def plot_mathematical_boundary(system_dict, current_prediction=None):
+    if not system_dict: return None
+    
+    X = system_dict["X"]
+    y = system_dict["y"]
+    sequences = system_dict["sequences"]
+    model_name = system_dict["name"]
+    
+    # Adaptive Class Selection
+    all_classes = sorted(list(np.unique(y)))
+    if len(all_classes) < 2: return None
+    
+    # Default: Pick the prediction and its nearest neighbor or static fallback
+    if current_prediction and current_prediction in all_classes:
+        class1 = current_prediction
+        # Pick a contrasting class (simple heuristic: next in list, or random)
+        # Ideally, we'd pick the class with the 2nd highest decision function value,
+        # but SVC(probability=False) doesn't give us that easily without more compute.
+        # We will just pick a neighbor in the sorted list to ensure consistency.
+        idx = all_classes.index(class1)
+        class2 = all_classes[(idx + 1) % len(all_classes)]
+    else:
+        class1 = all_classes[0]
+        class2 = all_classes[1]
+    # Filter data
     class1_indices = np.where(y == class1)[0]
     class2_indices = np.where(y == class2)[0]
     indices = np.concatenate([class1_indices, class2_indices])
     
-    if len(class1_indices) < 2 or len(class2_indices) < 2: return None
+    if len(class1_indices) < 1 or len(class2_indices) < 1: return None
     
     X_filtered, y_filtered = X[indices].toarray(), y[indices]
     sequences_filtered = sequences[indices]
     
+    # Dimensionality Reduction
     pca = PCA(n_components=2)
     X_2d = pca.fit_transform(X_filtered)
     
-    svm_2d = SVC(kernel='linear', C=1.0).fit(X_2d, y_filtered)
-
+    # Fit a 2D SVM for Visualization purposes ONLY (Proxy Model)
+    # matching the kernel of the main high-dim model
+    svm_viz = SVC(kernel='linear', C=1.0) 
+    svm_viz.fit(X_2d, y_filtered)
+    # Grid for Decision Boundary
     x_min, x_max = X_2d[:, 0].min() - 0.5, X_2d[:, 0].max() + 0.5
     y_min, y_max = X_2d[:, 1].min() - 0.5, X_2d[:, 1].max() + 0.5
     xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.02), np.arange(y_min, y_max, 0.02))
-    Z = svm_2d.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = svm_viz.predict(np.c_[xx.ravel(), yy.ravel()])
+    
+    # Convert string labels to 0/1 for contour plot
+    # Z contains strings like 'four', 'five'
     Z_num = np.array([0 if l == class1 else 1 for l in Z]).reshape(xx.shape)
-
     fig = go.Figure()
     
+    # Decision Boundary
     fig.add_trace(go.Contour(
         x=xx[0], y=yy[:, 0], z=Z_num, 
-        colorscale=[[0, 'rgba(255, 0, 0, 0.1)'], [1, 'rgba(0, 0, 255, 0.1)']], 
-        opacity=0.4, showscale=False, hoverinfo='skip', name="Decision Region"
+        colorscale=[[0, 'rgba(255, 0, 0, 0.2)'], [1, 'rgba(0, 0, 255, 0.2)']], 
+        opacity=0.4, showscale=False, hoverinfo='skip', name="Decision Boundary"
     ))
     
     colors = {class1: '#D62728', class2: '#1F77B4'}
@@ -299,49 +299,49 @@ def plot_mathematical_boundary(X, y, sequences, class1, class2):
         fig.add_trace(go.Scatter(
             x=X_2d[mask, 0], y=X_2d[mask, 1], 
             mode='markers', 
-            name=f"Predicts '{cls}'",
-            marker=dict(color=colors[cls], size=14, symbol=symbols[cls], line=dict(width=2, color='black')),
+            name=f"Outcome: '{cls}'",
+            marker=dict(color=colors[cls], size=12, symbol=symbols[cls], line=dict(width=1, color='black')),
             customdata=sequences_filtered[mask],
-            hovertemplate='<b>Phrase:</b> "%{customdata}"<br><b>Next Word:</b> '+cls+'<br><extra></extra>'
+            hovertemplate='<b>Sequence:</b> "%{customdata}"<br><b>Next:</b> '+cls+'<br><extra></extra>'
         ))
         
     fig.update_layout(
-        title=f"Geometric Boundary: '{class1}' vs. '{class2}'",
-        xaxis_title="Abstract Feature Dimension A", 
-        yaxis_title="Abstract Feature Dimension B",
-        template="plotly_white", height=500
+        title=f"{model_name} Decision Space<br>'{class1}' vs. '{class2}'",
+        xaxis_title="Principal Component 1", 
+        yaxis_title="Principal Component 2",
+        template="plotly_white", height=450,
+        margin=dict(t=50, b=20, l=20, r=20)
     )
     return fig
-
-# --- 6. Event Callbacks (The Fix for the API Error) ---
+# --- 6. Event Callbacks ---
 def on_generate_click():
-    """
-    This function runs BEFORE the script reruns. 
-    It can safely modify the state linked to the widget.
-    """
-    # 1. Access the current input from state
     current_input = st.session_state.user_text
     
-    # 2. Get the model (Cached, so it's fast)
-    model, vectorizer, sequence_length, X, y, sequences, corpus = initialize_system()
-    
-    # 3. Predict
-    pred, evidence = generate_and_audit(current_input, model, vectorizer, sequence_length, sequences, corpus)
+    # 1. Detect Intent -> Switch Model
+    intent = detect_intent(current_input)
+    if intent == "arithmetic":
+        system_dict = get_arithmetic_model()
+    else:
+        system_dict = get_sentence_model()
+        
+    st.session_state.active_model_name = system_dict["name"]
+        
+    # 2. Predict
+    pred, evidence = generate_and_audit(current_input, system_dict)
     
     if pred:
-        # 4. Update the Text Input's State
         st.session_state.user_text = f"{current_input} {pred}"
-        
-        # 5. Store metadata for the right column
         st.session_state.generated_word = pred
         st.session_state.provenance_data = evidence
         st.session_state.last_error = None
+        # Store for visualization
+        st.session_state.viz_system = system_dict
     else:
-        st.session_state.last_error = f"Input too short. Please use at least {sequence_length} words."
-
-
+        if evidence and evidence[0].startswith("(Input"):
+            st.session_state.last_error = evidence[0]
+        else:
+            st.session_state.last_error = f"Input too short or unknown. Need {system_dict['sequence_length']} words."
 # --- 7. Main Interface Execution ---
-
 # Initialize Session State
 if 'user_text' not in st.session_state:
     st.session_state.user_text = "The happy dog sat on the"
@@ -351,66 +351,51 @@ if 'generated_word' not in st.session_state:
     st.session_state.generated_word = None
 if 'last_error' not in st.session_state:
     st.session_state.last_error = None
-
-# Initialize Model
-model, vectorizer, sequence_length, X, y, sequences, corpus = initialize_system()
-
+if 'active_model_name' not in st.session_state:
+    st.session_state.active_model_name = "Linguistic Model"
+if 'viz_system' not in st.session_state:
+    # Default to sentence model initially
+    st.session_state.viz_system = get_sentence_model()
+# Ensure models are loaded
+# We load them to have them cache-ready, but use lazy routing in callback
+# (Streamlit execution flow requires we have them reachable)
+get_sentence_model()
+get_arithmetic_model()
 # --- DEFINE COLUMNS ---
 col_left, col_right = st.columns([1, 1])
-
 # --- LEFT COLUMN: Input & Simulation ---
 with col_left:
     st.subheader("1. The Simulation")
-    st.markdown("Input a phrase (3+ words) to see how the SVM geometrically maps it to a completion.")
+    st.caption(f"Active System: **{st.session_state.active_model_name}** (Auto-Detected)")
     
-    # The Widget (Linked to 'user_text')
+    st.markdown("Input a phrase. The system will detect if you are doing **Math** or **Language** and strictly retrieve the next token from the corresponding training data.")
+    
     st.text_input("Input Sequence:", key="user_text")
-    
-    # The Button (Triggers the Callback)
     st.button("Generate Next Token", type="primary", on_click=on_generate_click)
     
-    # Display Error if it occurred during callback
     if st.session_state.last_error:
         st.error(st.session_state.last_error)
-
 # --- RIGHT COLUMN: Provenance & Visualization ---
 with col_right:
     st.subheader("2. Provenance Audit")
     
     if st.session_state.provenance_data:
-        st.markdown("The system generated a token. Does this represent 'learning' or 'retrieval'?")
-        st.markdown("**Forensic Analysis:**")
-        st.markdown(
-            "The output was mandated because the input sequence exists verbatim in the source corpus. "
-            "The model is not 'creating'; it is completing a pattern found in the following copyrighted entries:"
-        )
+        st.success(f"**Generated:** {st.session_state.generated_word}")
+        st.markdown("**Forensic Analysis:** Found verbatim match in corpus:")
         for i, item in enumerate(st.session_state.provenance_data):
-            st.code(f"Source Record {i+1}: {item}", language="text")
-        
-        st.success(f"**Last Generated Token:** {st.session_state.generated_word}")
-        st.error("Conclusion: The output is a derivative of the training data.")
+            st.code(f"{i+1}: {item}", language="text")
     else:
-        st.info("Awaiting generation to perform forensic audit...")
+        st.info("Awaiting generation...")
     
     st.divider()
     
-    st.subheader("3. Mathematical Visualization")
-    st.info("ℹ️ **Instruction:** Hover your mouse over any dot. You will see the specific phrase from the training corpus that creates that data point.")
-    
-    # Dynamic Selectboxes for Visualization
-    all_classes = sorted(list(np.unique(y)))
-    # Defaults
-    idx_a = all_classes.index('three') if 'three' in all_classes else 0
-    idx_b = all_classes.index('four') if 'four' in all_classes else 1
-    
-    vc1, vc2 = st.columns(2)
-    viz_class_1 = vc1.selectbox("Target Word A", all_classes, index=idx_a)
-    remaining_classes = [c for c in all_classes if c != viz_class_1]
-    viz_class_2 = vc2.selectbox("Target Word B", remaining_classes, index=remaining_classes.index('four') if 'four' in remaining_classes else 0)
-
-    fig = plot_mathematical_boundary(X, y, sequences, viz_class_1, viz_class_2)
-    if fig: 
-        st.plotly_chart(fig, use_container_width=True)
-        st.caption("The line represents the mathematical 'rule' the model learned to separate these two outcomes.")
-    else:
-        st.warning("Not enough data points to plot these specific words against each other.")
+    # Visualization is now fully adaptive
+    if st.session_state.viz_system:
+        # Use the prediction to center the visualization, or default
+        pred = st.session_state.generated_word
+        fig = plot_mathematical_boundary(st.session_state.viz_system, current_prediction=pred)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
+            st.caption("The diagram updates dynamically to show the decision boundary relevant to your last input.")
+        else:
+            st.warning("Insufficient data to plot boundary.")
