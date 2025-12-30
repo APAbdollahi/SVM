@@ -8,12 +8,14 @@ import nltk
 from nltk.tokenize import word_tokenize
 import plotly.graph_objects as go
 import time
+
 # --- 1. Configuration & Academic Context ---
 st.set_page_config(
     layout="wide", 
     page_title="Algorithmic Provenance: An Inquiry",
     initial_sidebar_state="expanded"
 )
+
 # --- NLTK Setup (Robust Handling for Cloud Deployment) ---
 try:
     nltk.data.find('tokenizers/punkt_tab')
@@ -23,6 +25,7 @@ try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
     nltk.download('punkt', quiet=True)
+
 # --- 2. The Thesis & Author (Sidebar) ---
 with st.sidebar:
     st.markdown("### Project Lead")
@@ -64,8 +67,8 @@ with st.sidebar:
         "**The Demonstration:** The **Provenance Audit** panel reveals that the model's outputs are frequently verbatim retrievals from the source corpus. "
         "The system does not 'imagine' the next word; it locates the statistical precedent in its training data."
     )
-# --- 3. The Controlled Corpus & Model (Enriched) ---
-# --- 3. The Controlled Corpus & Model (Structurally Enriched) ---
+
+# --- 3. The Controlled Corpus & Model (Fully Enriched) ---
 
 @st.cache_data
 def get_sentence_model(sequence_length=3, injected_corpus=None):
@@ -112,7 +115,6 @@ def get_sentence_model(sequence_length=3, injected_corpus=None):
 
     # C. Compound Sentences (Connecting ideas with 'and')
     # This teaches the model to hold context over long sequences.
-    # We sample systematically to avoid generating 1 million sentences (which would crash the browser).
     for i in range(0, len(base_sentences), 10): # Take every 10th sentence to pair up
         s1 = base_sentences[i][:-1] # Remove period
         # Pair with a related sentence (e.g., next in list)
@@ -235,127 +237,114 @@ def get_arithmetic_model(sequence_length=4, injected_corpus=None):
         corpus.extend(injected_corpus * 15)
         
     return _train_pipeline(corpus, "Arithmetic Model", sequence_length=sequence_length)
+
 @st.cache_data
 def get_everyday_model(sequence_length=3, injected_corpus=None):
     """
-    Builds the Everyday Routine Model.
-    ENRICHMENT STRATEGY: Cross-product of Subjects and Predicates.
+    Builds the Human Routine Model.
+    ENRICHMENT STRATEGY: Causality, Temporal Logic, and Social Dynamics.
     """
     corpus = []
     
-    # Existing Vocabulary Components
-    people = ["I", "He", "She", "We", "They", "The man", "The woman", "The boy", "The girl"]
+    # --- 1. Expanded Vocabulary ---
+    people = ["I", "You", "He", "She", "We", "They", "The man", "The woman", "The doctor", "The teacher", "The student"]
     
-    # Full predicate phrases (Verb + Object/Adjective)
-    # We maintain the grammar of the original simple sentences
-    predicates = [
-        "sat on the soft sofa", "sat on the hard chair", "sat at the table",
-        "ordered a large pizza", "ordered a nice lunch",
-        "cooked a nice dinner", "cooked a hot meal",
-        "drove the red car", "drove the big car",
-        "washed the dirty dishes", "washed the glass window",
-        "read a long book", "read the news paper",
-        "watched the news on tv", "watched a movie",
-        "drank a glass of water", "drank a hot coffee",
-        "walked in the city park", "walked to the work",
-        "played a fun game", "played in the garden",
-        "opened the front door", "closed the glass window",
-        "woke up very early", "went to sleep late",
-        "called her best friend", "met his boss today"
-    ]
-    
-    # Emotional States (Cross-product)
-    emotions = ["happy", "sad", "tired", "angry", "calm", "sleepy", "cold", "hot"]
-    time_markers = ["today", "yesterday", "now"]
-    
-    # 1. Action Permutations
-    for person in people:
-        for pred in predicates:
-            # Handle minimal grammar corrections for "I" vs "He" generically
-            # For this simple model, we ignore strict conjugation nuances (e.g. "I was" vs "He was")
-            # except where explicitly simple. 
-            corpus.append(f"{person} {pred}.")
-
-    # 2. Emotional State Permutations
-    # "He felt very happy today."
-    for person in people:
-        for emo in emotions:
-            for time in time_markers:
-                corpus.append(f"{person} felt very {emo} {time}.")
-                corpus.append(f"{person} was quite {emo} {time}.")
-                
-    if injected_corpus:
-        corpus.extend(injected_corpus * 10)
-        
-    return _train_pipeline(corpus, "Everyday Model", sequence_length=sequence_length)
-@st.cache_data
-def get_arithmetic_model(sequence_length=4, injected_corpus=None):
-    """Builds the Rigid Arithmetic Model"""
-    # 2. Arithmetic Expansion (Programmatic)
-    num_map = {
-        0: "zero", 1: "one", 2: "two", 3: "three", 4: "four",
-        5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine", 
-        10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen", 
-        14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen", 
-        18: "eighteen", 19: "nineteen"
+    # Associated pronouns for causal logic (He -> he, The man -> he)
+    pronoun_map = {
+        "I": "I", "You": "you", "He": "he", "She": "she", "We": "we", "They": "they",
+        "The man": "he", "The woman": "she", "The doctor": "she", "The teacher": "he", "The student": "she"
     }
-    
-    arithmetic_corpus = []
-    
-    # Generate all single digit additions
-    for a in range(10):  # 0-9
-        for b in range(10): # 0-9
-            res = a + b
-            if res in num_map:
-                # e.g. "two plus two equals four"
-                sentence = f"{num_map[a]} plus {num_map[b]} equals {num_map[res]}."
-                arithmetic_corpus.append(sentence)
-                
-                # Symbolic version: "2 + 2 = 4."
-                sentence_sym = f"{a} + {b} = {res}."
-                arithmetic_corpus.append(sentence_sym)
-    # Generate simple subtractions (where result >= 0)
-    for a in range(10):
-        for b in range(a + 1): # b <= a
-            res = a - b
-            # "five minus two equals three"
-            if res in num_map:
-                sentence = f"{num_map[a]} minus {num_map[b]} equals {num_map[res]}."
-                arithmetic_corpus.append(sentence)
-                sentence_sym = f"{a} - {b} = {res}."
-                arithmetic_corpus.append(sentence_sym)
-                
-    if injected_corpus:
-        arithmetic_corpus.extend(injected_corpus)
-    # Math needs longer context "2 + 2 =" is 4 tokens usually
-    return _train_pipeline(arithmetic_corpus, "Arithmetic Model", sequence_length=sequence_length)
 
-@st.cache_data
-def get_everyday_model(sequence_length=3, injected_corpus=None):
-    """Builds the Everyday Routine Model (Routine Actions)"""
-    corpus = [
-        # Personal Actions (Extended for N=3)
-        "I sat on the soft sofa.", "I ordered a large pizza.", "She cooked a nice dinner.", "He drove the red car.",
-        "I washed the dirty dishes.", "He read a long book.", "She watched the news on tv.", "I drank a glass of water.",
-        "We walked in the city park.", "They played a fun game.", "I opened the front door.", "She closed the glass window.",
-        
-        # Emotions & States
-        "He felt very happy today.", "She felt quite sad yesterday.", "I was feeling very tired.", "The man was very angry.",
-        "The woman was quite calm.", "The child was very sleepy.", "I felt very cold outside.", "He felt quite hot inside.",
-        
-        # Daily Routine
-        "The woman went to her work.", "The boy played in the garden.", "The girl went to her school.",
-        "I woke up very early.", "He went to sleep late.", "She ate her breakfast alone.", "We had a big lunch together.",
-        
-        # Simple Social Interactions
-        "She called her best friend.", "He met his boss today.", "I saw my neighbor outside.", "We visited our family members.",
-        "They talked for two hours.", "I sent a long message."
+    # Transitive Actions (Verb + Adjective + Object)
+    actions_transitive = [
+        ("ate", ["a hot lunch", "a cold sandwich", "a delicious dinner", "a sweet apple"]),
+        ("drank", ["a glass of water", "a cup of coffee", "hot tea", "cold juice"]),
+        ("read", ["a long book", "the morning news", "an interesting letter", "a text message"]),
+        ("wrote", ["a short email", "a long report", "a nice letter"]),
+        ("bought", ["a new car", "fresh food", "a warm coat", "a train ticket"]),
+        ("washed", ["the dirty dishes", "the muddy car", "the blue shirt"]),
+        ("watched", ["the news on tv", "a scary movie", "a football game"]),
+        ("opened", ["the front door", "the heavy window", "the mysterious box"]),
+        ("closed", ["the office door", "the kitchen window", "the thick book"])
     ]
+
+    # Intransitive/Locative Actions (Verb + Preposition + Place)
+    actions_locative = [
+        ("walked", "to", ["the city park", "the office", "the school", "the train station"]),
+        ("ran", "in", ["the garden", "the gym", "the large field"]),
+        ("sat", "in", ["the living room", "the quiet library", "the busy kitchen"]),
+        ("slept", "in", ["a soft bed", "a hotel room", "the quiet house"]),
+        ("waited", "at", ["the bus stop", "the train station", "the restaurant"])
+    ]
+
+    # Emotional/Physical States (for Causality)
+    # State : Logical Consequence Verb
+    states_logic = {
+        "hungry": "ate",
+        "thirsty": "drank",
+        "tired": "slept",
+        "energetic": "ran",
+        "bored": "watched",
+        "cold": "bought", # bought a coat
+        "dirty": "washed"
+    }
+
+    # --- 2. Combinatorial Sentence Generation ---
+
+    # A. Base Sentences (Facts)
+    for p in people:
+        for verb, objs in actions_transitive:
+            for obj in objs:
+                corpus.append(f"{p} {verb} {obj}.")
     
+    for p in people:
+        for verb, prep, places in actions_locative:
+            for place in places:
+                corpus.append(f"{p} {verb} {prep} {place}.")
+
+    # B. Causal Structures ("Why" things happen)
+    # "He drank water because he was thirsty."
+    for p in people:
+        pronoun = pronoun_map[p]
+        for state, trigger_verb in states_logic.items():
+            relevant_objs = next((objs for v, objs in actions_transitive if v == trigger_verb), [])
+            if relevant_objs:
+                obj = relevant_objs[0] 
+                # Template: Action BECAUSE State
+                corpus.append(f"{p} {trigger_verb} {obj} because {pronoun} was {state}.")
+                # Template: State SO Action
+                corpus.append(f"{p} was {state} so {pronoun} {trigger_verb} {obj}.")
+
+    # C. Temporal Sequences (Planning/Time)
+    morning_routine = ["woke up", "got out of bed", "brushed teeth"]
+    post_routine = ["drank coffee", "ate breakfast", "went to work"]
+    
+    for p in people:
+        for start in morning_routine:
+            for end in post_routine:
+                corpus.append(f"First {pronoun_map[p]} {start} then {pronoun_map[p]} {end}.")
+                corpus.append(f"After {pronoun_map[p]} {start} {pronoun_map[p]} {end}.")
+
+    # D. Social Compounds (Interaction)
+    pairs = [("I", "He"), ("She", "The man"), ("The teacher", "The student"), ("We", "They")]
+    for p1, p2 in pairs:
+        corpus.append(f"{p1} cooked a hot meal and {p2} ate it.")
+        corpus.append(f"{p1} washed the dishes and {p2} dried them.")
+        corpus.append(f"{p1} talked loudly but {p2} listened quietly.")
+        corpus.append(f"{p1} bought the food and {p2} paid the bill.")
+
+    # E. Contradictions / Shifts (The "But" Logic)
+    for p in people:
+        pronoun = pronoun_map[p]
+        corpus.append(f"{p} wanted to sleep but {pronoun} had to work.")
+        corpus.append(f"{p} was hungry but the fridge was empty.")
+        corpus.append(f"{p} ran fast but missed the bus.")
+
     if injected_corpus:
-        corpus.extend(injected_corpus)
+        corpus.extend(injected_corpus * 15)
         
     return _train_pipeline(corpus, "Everyday Model", sequence_length=sequence_length)
+
 def _train_pipeline(corpus, model_name, sequence_length):
     """Shared training logic for any corpus."""
     sequences_list = []
@@ -399,6 +388,7 @@ def _train_pipeline(corpus, model_name, sequence_length):
         "corpus": corpus,
         "name": model_name
     }
+
 # --- 4. Logic: Inference & Provenance Tracking ---
 def detect_intent(text):
     """Heuristic router to decide between Math and Sentences."""
@@ -409,6 +399,7 @@ def detect_intent(text):
     if score > 0:
         return "arithmetic"
     return "sentence"
+
 def generate_and_audit(input_text, system_dict):
     if not system_dict: return None, None, []
     
@@ -430,29 +421,16 @@ def generate_and_audit(input_text, system_dict):
             return None, ["(Input contains no known n-grams from training data)"], []
             
         # Get raw decision values for ranking
-        # SVC without probability=True returns signed distance to hyperplane
         decision_values = model.decision_function(input_vector)[0]
         
         # Determine classes
         classes = model.classes_
         
-        # If binary classification, decision_function returns scalar (distance from separating plane)
         if len(classes) == 2:
-            # Not handled for brevity in multi-class dominant case, but standard logic applies
-            # We assume multi-class for this rich corpus
-            max_idx = 0 if decision_values < 0 else 1 # Simplified, typically OvO for SVC
-            # Actually standard SVC OvO is complex. Let's rely on .predict for primary
             prediction = model.predict(input_vector)[0]
-            candidates = [] # Binary is simple
+            candidates = [] 
         else:
-            # Multi-class (OvO usually) generates n_classes * (n_classes - 1) / 2 scores
-            # BUT decision_function shape for OvR (which is default for LinearSVC but not SVC)
-            # SVC 'ovr' shape is (n_samples, n_classes). Let's trust the indices.
-            
-            # Map scores to classes
-            # Note: SVC with decision_function_shape='ovr' (default) gives (n_samples, n_classes)
             top_indices = np.argsort(decision_values)[::-1]
-            
             prediction = classes[top_indices[0]]
             
             # Prepare candidates list: (Word, Score)
@@ -554,6 +532,7 @@ def plot_mathematical_boundary(system_dict, current_prediction=None, comparison_
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     return fig
+
 # --- 6. Event Callbacks ---
 def on_generate_click():
     current_input = st.session_state.user_text
@@ -601,6 +580,7 @@ def on_generate_click():
             st.session_state.last_error = evidence[0]
         else:
             st.session_state.last_error = f"Input too short (Tokens: {len(word_tokenize(current_input.lower()))}). Need at least {system_dict['sequence_length']} known words/tokens."
+
 # --- 7. Main Interface Execution ---
 if __name__ == "__main__":
     # Initialize Session State
@@ -621,6 +601,7 @@ if __name__ == "__main__":
         st.session_state.candidates = []
     if 'injected_corpus' not in st.session_state:
         st.session_state.injected_corpus = []
+
     # Sidebar Extras for Pedagogical Workbench
     with st.sidebar:
         st.divider()
