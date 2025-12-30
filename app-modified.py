@@ -194,6 +194,9 @@ def plot_mathematical_boundary(X, y, sequences, class1, class2):
     
     X_filtered, y_filtered = X[indices].toarray(), y[indices]
     
+    # Retrieve the text sequences corresponding to these vectors
+    sequences_filtered = sequences[indices]
+    
     # Dimensionality Reduction for visual representation
     pca = PCA(n_components=2)
     X_2d = pca.fit_transform(X_filtered)
@@ -213,8 +216,13 @@ def plot_mathematical_boundary(X, y, sequences, class1, class2):
     for cls in [class1, class2]:
         mask = (y_filtered == cls)
         fig.add_trace(go.Scatter(
-            x=X_2d[mask, 0], y=X_2d[mask, 1], mode='markers', name=cls,
-            marker=dict(color=colors[cls], size=10, line=dict(width=1, color='black'))
+            x=X_2d[mask, 0], y=X_2d[mask, 1], 
+            mode='markers', 
+            name=cls,
+            marker=dict(color=colors[cls], size=12, line=dict(width=1, color='black')),
+            # Injecting the text data into the chart
+            customdata=sequences_filtered[mask],
+            hovertemplate='<b>Sentence Segment:</b> "%{customdata}"<br><b>Forced Outcome:</b> '+cls+'<extra></extra>'
         ))
         
     fig.update_layout(
@@ -264,7 +272,10 @@ with col_left:
          st.success(f"Generated Token: **{st.session_state.text_buffer.split()[-1]}**")
 
     st.markdown("#### 3. Mathematical Visualization")
+    # Added explicit instruction as requested
+    st.info("ℹ️ **Instruction:** Please hover your mouse on a dot to see which sentence in the training corpus it represents.")
     st.caption("The decision to select 'rug' vs 'bed' is not cognitive; it is the result of a vector falling on a specific side of a mathematical line.")
+    
     # Static visualization for simplicity
     fig = plot_mathematical_boundary(X, y, sequences, 'rug', 'bed')
     if fig: st.plotly_chart(fig, use_container_width=True)
