@@ -97,7 +97,8 @@ def get_sentence_model():
         "The early bird catches the worm.", "The quick brown fox jumps over.",
     ]
     
-    return _train_pipeline(corpus, "Linguistic Model")
+    # User Request: "requiring a minimumm of three words is better"
+    return _train_pipeline(corpus, "Linguistic Model", sequence_length=3)
 @st.cache_data
 def get_arithmetic_model():
     """Builds the Rigid Arithmetic Model"""
@@ -135,38 +136,36 @@ def get_arithmetic_model():
                 sentence_sym = f"{a} - {b} = {res}."
                 arithmetic_corpus.append(sentence_sym)
                 
-    return _train_pipeline(arithmetic_corpus, "Arithmetic Model")
-def _train_pipeline(corpus, model_name):
+    # Math needs longer context "2 + 2 =" is 4 tokens usually
+    return _train_pipeline(arithmetic_corpus, "Arithmetic Model", sequence_length=4)
+def _train_pipeline(corpus, model_name, sequence_length):
     """Shared training logic for any corpus."""
     sequences_list = []
     targets = []
-    sequence_length = 4
     
     for sentence in corpus:
-        # Tokenize
+        # Tokenize per sentence
         sent_tokens = [word.lower() for word in word_tokenize(sentence, preserve_line=True) if word.isalpha() or word in ['+', '-', '='] or word.isdigit()]
         
         if len(sent_tokens) <= sequence_length:
             continue
             
-        # N-Grams
+        # Generate sliding windows ONLY within this sentence
         for i in range(len(sent_tokens) - sequence_length):
             seq = sent_tokens[i:i + sequence_length]
             target = sent_tokens[i + sequence_length]
             sequences_list.append(" ".join(seq))
             targets.append(target)
             
-    if not sequences_list:
-        return None
-        
-    # Vectorization (N-Grams enabled for structure)
+    # Vectorization
     vectorizer = TfidfVectorizer(ngram_range=(1, 4))
+    
+    if not sequences_list: 
+        return None
     X = vectorizer.fit_transform(sequences_list)
     y = np.array(targets)
     
-    # Train SVM
-    # C=1000 for "Hard Margin" / Memorization behavior
-    # class_weight='balanced' to handle frequency skew
+    # The Algorithm: Linear SVM
     svm_model = SVC(kernel='linear', C=1000, class_weight='balanced')
     svm_model.fit(X, y)
     
@@ -180,19 +179,18 @@ def _train_pipeline(corpus, model_name):
         "corpus": corpus,
         "name": model_name
     }
-# --- 4. Logic: Routing & Inference ---
+# --- 4. Logic: Inference & Provenance Tracking ---
 def detect_intent(text):
     """Heuristic router to decide between Math and Sentences."""
     text_lower = text.lower()
     math_keywords = ['plus', 'minus', 'equals', 'sum', '+', '-', '=', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
     
-    # If any math symbol or keyword is present, route to Arithmetic
     score = sum(1 for k in math_keywords if k in text_lower)
     if score > 0:
         return "arithmetic"
     return "sentence"
 def generate_and_audit(input_text, system_dict):
-    if not system_dict: return None, None
+    if not system_dict: return None, None, []
     
     model = system_dict["model"]
     vectorizer = system_dict["vectorizer"]
@@ -201,37 +199,63 @@ def generate_and_audit(input_text, system_dict):
     corpus = system_dict["corpus"]
     
     tokenized_input = word_tokenize(input_text.lower())
-    # Robust check for minimum length
     if len(tokenized_input) < sequence_length:
-        return None, None
+        return None, None, []
     
     last_sequence = " ".join(tokenized_input[-sequence_length:])
     
-    # Try-Catch for vocabulary issues (unseen words)
     try:
         input_vector = vectorizer.transform([last_sequence])
-        # Check if vector is all zeros (completely unknown n-grams)
         if input_vector.sum() == 0:
-            return None, ["(Input contains no known n-grams from training data)"]
+            return None, ["(Input contains no known n-grams from training data)"], []
             
-        prediction = model.predict(input_vector)[0]
+        # Get raw decision values for ranking
+        # SVC without probability=True returns signed distance to hyperplane
+        decision_values = model.decision_function(input_vector)[0]
+        
+        # Determine classes
+        classes = model.classes_
+        
+        # If binary classification, decision_function returns scalar (distance from separating plane)
+        if len(classes) == 2:
+            # Not handled for brevity in multi-class dominant case, but standard logic applies
+            # We assume multi-class for this rich corpus
+            max_idx = 0 if decision_values < 0 else 1 # Simplified, typically OvO for SVC
+            # Actually standard SVC OvO is complex. Let's rely on .predict for primary
+            prediction = model.predict(input_vector)[0]
+            candidates = [] # Binary is simple
+        else:
+            # Multi-class (OvO usually) generates n_classes * (n_classes - 1) / 2 scores
+            # BUT decision_function shape for OvR (which is default for LinearSVC but not SVC)
+            # SVC 'ovr' shape is (n_samples, n_classes). Let's trust the indices.
+            
+            # Map scores to classes
+            # Note: SVC with decision_function_shape='ovr' (default) gives (n_samples, n_classes)
+            top_indices = np.argsort(decision_values)[::-1]
+            
+            prediction = classes[top_indices[0]]
+            
+            # Prepare candidates list: (Word, Score)
+            candidates = []
+            for idx in top_indices[:5]: # Top 5
+                candidates.append((classes[idx], decision_values[idx]))
+            
     except Exception as e:
-        return None, [str(e)]
+        return None, [str(e)], []
     
     # Provenance Audit
     search_phrase = f"{last_sequence} {prediction}"
     evidence = []
     
     for sentence in corpus:
-        # Simple substring search for provenance
         if search_phrase in sentence.lower():
             evidence.append(sentence)
             if len(evidence) >= 3: break 
             
-    return prediction, evidence
+    return prediction, evidence, candidates
     
 # --- 5. Visualization Logic ---
-def plot_mathematical_boundary(system_dict, current_prediction=None):
+def plot_mathematical_boundary(system_dict, current_prediction=None, comparison_class=None):
     if not system_dict: return None
     
     X = system_dict["X"]
@@ -243,18 +267,14 @@ def plot_mathematical_boundary(system_dict, current_prediction=None):
     all_classes = sorted(list(np.unique(y)))
     if len(all_classes) < 2: return None
     
-    # Default: Pick the prediction and its nearest neighbor or static fallback
-    if current_prediction and current_prediction in all_classes:
-        class1 = current_prediction
-        # Pick a contrasting class (simple heuristic: next in list, or random)
-        # Ideally, we'd pick the class with the 2nd highest decision function value,
-        # but SVC(probability=False) doesn't give us that easily without more compute.
-        # We will just pick a neighbor in the sorted list to ensure consistency.
+    class1 = current_prediction if current_prediction in all_classes else all_classes[0]
+    
+    if comparison_class and comparison_class in all_classes and comparison_class != class1:
+        class2 = comparison_class
+    else:
+        # Default to the nearest neighbor (or just next in list)
         idx = all_classes.index(class1)
         class2 = all_classes[(idx + 1) % len(all_classes)]
-    else:
-        class1 = all_classes[0]
-        class2 = all_classes[1]
     # Filter data
     class1_indices = np.where(y == class1)[0]
     class2_indices = np.where(y == class2)[0]
@@ -306,11 +326,12 @@ def plot_mathematical_boundary(system_dict, current_prediction=None):
         ))
         
     fig.update_layout(
-        title=f"{model_name} Decision Space<br>'{class1}' vs. '{class2}'",
+        title=f"{model_name}<br>Boundary: '{class1}' vs. '{class2}'",
         xaxis_title="Principal Component 1", 
         yaxis_title="Principal Component 2",
         template="plotly_white", height=450,
-        margin=dict(t=50, b=20, l=20, r=20)
+        margin=dict(t=50, b=20, l=20, r=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     return fig
 # --- 6. Event Callbacks ---
@@ -327,12 +348,13 @@ def on_generate_click():
     st.session_state.active_model_name = system_dict["name"]
         
     # 2. Predict
-    pred, evidence = generate_and_audit(current_input, system_dict)
+    pred, evidence, candidates = generate_and_audit(current_input, system_dict)
     
     if pred:
         st.session_state.user_text = f"{current_input} {pred}"
         st.session_state.generated_word = pred
         st.session_state.provenance_data = evidence
+        st.session_state.candidates = candidates # Store for UI
         st.session_state.last_error = None
         # Store for visualization
         st.session_state.viz_system = system_dict
@@ -344,7 +366,7 @@ def on_generate_click():
 # --- 7. Main Interface Execution ---
 # Initialize Session State
 if 'user_text' not in st.session_state:
-    st.session_state.user_text = "The happy dog sat on the"
+    st.session_state.user_text = "happy dog sat" # User requested default
 if 'provenance_data' not in st.session_state:
     st.session_state.provenance_data = None
 if 'generated_word' not in st.session_state:
@@ -356,46 +378,94 @@ if 'active_model_name' not in st.session_state:
 if 'viz_system' not in st.session_state:
     # Default to sentence model initially
     st.session_state.viz_system = get_sentence_model()
+if 'candidates' not in st.session_state:
+    st.session_state.candidates = []
 # Ensure models are loaded
 # We load them to have them cache-ready, but use lazy routing in callback
 # (Streamlit execution flow requires we have them reachable)
 get_sentence_model()
 get_arithmetic_model()
 # --- DEFINE COLUMNS ---
-col_left, col_right = st.columns([1, 1])
+col_left, col_right = st.columns([1, 1], gap="large")
 # --- LEFT COLUMN: Input & Simulation ---
 with col_left:
     st.subheader("1. The Simulation")
-    st.caption(f"Active System: **{st.session_state.active_model_name}** (Auto-Detected)")
+    st.caption(f"Active System: **{st.session_state.active_model_name}**")
     
-    st.markdown("Input a phrase. The system will detect if you are doing **Math** or **Language** and strictly retrieve the next token from the corresponding training data.")
+    st.markdown("Input a phrase. Note how text only needs **3 words** now, but math maintains structure.")
     
     st.text_input("Input Sequence:", key="user_text")
     st.button("Generate Next Token", type="primary", on_click=on_generate_click)
     
     if st.session_state.last_error:
         st.error(st.session_state.last_error)
+        
+    # --- WOW FACTOR: Confidence Metrics ---
+    if st.session_state.candidates:
+        st.divider()
+        st.markdown("### 🧠 Internal Calculations")
+        st.caption("The SVM calculates the signed distance of your input vector to the hyperplanes of every possible next word. The 'winner' is the one with the highest positive score.")
+        
+        top_cand = st.session_state.candidates[0]
+        
+        # Display the winner prominently
+        st.metric(label="Top Prediction", value=top_cand[0], delta=f"{top_cand[1]:.2f} (Dist)")
+        
+        # Show "Runner Ups"
+        if len(st.session_state.candidates) > 1:
+            st.write("**Top Alternative Candidates:**")
+            cand_df = pd.DataFrame(st.session_state.candidates[1:], columns=["Token", "Distance"])
+            st.dataframe(cand_df, hide_index=True, use_container_width=True)
 # --- RIGHT COLUMN: Provenance & Visualization ---
 with col_right:
     st.subheader("2. Provenance Audit")
     
     if st.session_state.provenance_data:
         st.success(f"**Generated:** {st.session_state.generated_word}")
-        st.markdown("**Forensic Analysis:** Found verbatim match in corpus:")
-        for i, item in enumerate(st.session_state.provenance_data):
-            st.code(f"{i+1}: {item}", language="text")
+        st.markdown(f"**Source Matches:** Found {len(st.session_state.provenance_data)} verbatim record(s).")
+        with st.expander("View Source Records", expanded=True):
+            for i, item in enumerate(st.session_state.provenance_data):
+                st.code(f"{item}", language="text")
     else:
         st.info("Awaiting generation...")
     
     st.divider()
     
+    st.subheader("3. Geometric Boundary")
+    
     # Visualization is now fully adaptive
-    if st.session_state.viz_system:
-        # Use the prediction to center the visualization, or default
+    if st.session_state.viz_system and st.session_state.generated_word:
+        # Use the prediction to center the visualization
         pred = st.session_state.generated_word
-        fig = plot_mathematical_boundary(st.session_state.viz_system, current_prediction=pred)
+        
+        # Interactive Control: Choice of what to compare against
+        # Get all classes for the current system/input
+        # We can use the candidates list if available to filter relevant ones
+        system_y = st.session_state.viz_system["y"]
+        all_possible = sorted(list(np.unique(system_y)))
+        
+        # Default options should include the top runners-up
+        if st.session_state.candidates and len(st.session_state.candidates) > 1:
+            # Suggest the second best as default comparison
+            default_ix = 0
+            second_best = st.session_state.candidates[1][0]
+            if second_best in all_possible:
+                default_ix = all_possible.index(second_best)
+        else:
+            default_ix = 0
+            
+        col_ctrl1, col_ctrl2 = st.columns([2, 1])
+        with col_ctrl1:
+            compare_class = st.selectbox(
+                f"Show boundary between **'{pred}'** and:", 
+                [c for c in all_possible if c != pred],
+                index=default_ix if default_ix < len([c for c in all_possible if c != pred]) else 0
+            )
+        fig = plot_mathematical_boundary(st.session_state.viz_system, current_prediction=pred, comparison_class=compare_class)
         if fig:
             st.plotly_chart(fig, use_container_width=True)
-            st.caption("The diagram updates dynamically to show the decision boundary relevant to your last input.")
+            st.caption(f"Visualizing the mathematical cut between predicting **'{pred}'** vs **'{compare_class}'**.")
         else:
             st.warning("Insufficient data to plot boundary.")
+    else:
+        st.info("Generate a word to see its geometric neighborhood.")
