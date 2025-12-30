@@ -469,3 +469,4 @@ with col_right:
             st.warning("Insufficient data to plot boundary.")
     else:
         st.info("Generate a word to see its geometric neighborhood.")
+
