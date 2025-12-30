@@ -65,11 +65,12 @@ with st.sidebar:
         "The system does not 'imagine' the next word; it locates the statistical precedent in its training data."
     )
 # --- 3. The Controlled Corpus & Model ---
+# --- 3. The Dual-Corpus Architecture ---
 @st.cache_data
-def initialize_system():
-    # --- 1. Base Corpus (Simple Sentences) ---
-    # Enhanced with more variety as requested
-    base_corpus = [
+def get_sentence_model():
+    """Builds the Linguistic/Philosophical Model"""
+    # 1. Base Corpus (Simple Sentences + Philosophical Context)
+    corpus = [
         # Original Dog/Cat Universe
         "The happy dog sat on the rug.", "The lazy cat slept on the sofa.", "The playful dog chased the red toy.",
         "The sleepy cat watched the small bird.", "The brown dog ate the big bone.", "The white cat hid under the bed.",
@@ -78,11 +79,11 @@ def initialize_system():
         "The happy dog wanted the bone.", "The lazy cat saw the sleepy dog.", "The playful dog sat on the sofa.",
         "The sleepy cat ate the white food.", "The brown dog chased the furry cat.", "The white cat played with a toy.",
         
-        # ... (Keeping some originals) ...
+        # ... (Some Location/Object Variations) ...
         "The happy dog sat at the table.", "The lazy cat slept under the table.", "The brown dog hid under the table.",
         "The small mouse ran under the table.", "The big bird sat on the table.", "The white cat played at the table.",
         
-        # New "Philosophical/Technical" Sentences (The Machine Context)
+        # Philosophical/Technical Refutation Context
         "The machine processes the raw data.", "The algorithm minimizes the error rate.", 
         "The system retrieves the stored pattern.", "The logic follows the strict rule.",
         "The silicon chip processes the bit.", "The vector maps to the point.",
@@ -90,14 +91,17 @@ def initialize_system():
         "The output mimics the user input.", "The audit reveals the source text.",
         "The mathematics defines the boundary line.", "The geometry explains the output word.",
         
-        # Simple Logic
+        # Simple Logic / Folk Wisdom
         "If it rains the ground gets wet.", "If the sun shines the grass grows.",
         "The red light means stop now.", "The green light means go now.",
         "The early bird catches the worm.", "The quick brown fox jumps over.",
     ]
     
-    # --- 2. Arithmetic Expansion (Programmatic) ---
-    # Converting digits to words for consistent tokenization
+    return _train_pipeline(corpus, "Linguistic Model")
+@st.cache_data
+def get_arithmetic_model():
+    """Builds the Rigid Arithmetic Model"""
+    # 2. Arithmetic Expansion (Programmatic)
     num_map = {
         0: "zero", 1: "one", 2: "two", 3: "three", 4: "four",
         5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine", 
@@ -130,64 +134,96 @@ def initialize_system():
                 arithmetic_corpus.append(sentence)
                 sentence_sym = f"{a} - {b} = {res}."
                 arithmetic_corpus.append(sentence_sym)
-    final_corpus = base_corpus + arithmetic_corpus
-    
-    # --- 3. Robust N-Gram Generation (Per Sentence) ---
+                
+    return _train_pipeline(arithmetic_corpus, "Arithmetic Model")
+def _train_pipeline(corpus, model_name):
+    """Shared training logic for any corpus."""
     sequences_list = []
     targets = []
-    sequence_length = 4  # INCREASED from 3 to 4 to capture 'two plus two equals'
+    sequence_length = 4
     
-    all_tokens = [] # Just for vocabulary/debugging
-    
-    for sentence in final_corpus:
-        # Tokenize per sentence
+    for sentence in corpus:
+        # Tokenize
         sent_tokens = [word.lower() for word in word_tokenize(sentence, preserve_line=True) if word.isalpha() or word in ['+', '-', '='] or word.isdigit()]
         
         if len(sent_tokens) <= sequence_length:
             continue
             
-        all_tokens.extend(sent_tokens)
-        
-        # Generate sliding windows ONLY within this sentence
+        # N-Grams
         for i in range(len(sent_tokens) - sequence_length):
             seq = sent_tokens[i:i + sequence_length]
             target = sent_tokens[i + sequence_length]
             sequences_list.append(" ".join(seq))
             targets.append(target)
             
-    # Vectorization
-    # Enable n-grams to capture word order (critical for arithmetic "2+5" vs "5+2" and specific phrases)
+    if not sequences_list:
+        return None
+        
+    # Vectorization (N-Grams enabled for structure)
     vectorizer = TfidfVectorizer(ngram_range=(1, 4))
-    # We might have duplicates in sequences_list (e.g. repeated structures), 
-    # but SVM handles them (weighted density).
-    
-    if not sequences_list: 
-        # Fallback if corpus is broken
-        st.error("Corpus generation failed. No sequences found.")
-        return None, None, 4, None, None, [], []
     X = vectorizer.fit_transform(sequences_list)
     y = np.array(targets)
     
-    # The Algorithm: Linear SVM
+    # Train SVM
+    # C=1000 for "Hard Margin" / Memorization behavior
+    # class_weight='balanced' to handle frequency skew
     svm_model = SVC(kernel='linear', C=1000, class_weight='balanced')
     svm_model.fit(X, y)
     
-    return svm_model, vectorizer, sequence_length, X, y, np.array(sequences_list), final_corpus
-# --- 4. Logic: Inference & Provenance Tracking ---
-def generate_and_audit(input_text, model, vectorizer, sequence_length, sequences_list, corpus):
+    return {
+        "model": svm_model,
+        "vectorizer": vectorizer,
+        "sequence_length": sequence_length,
+        "X": X,
+        "y": y,
+        "sequences": np.array(sequences_list),
+        "corpus": corpus,
+        "name": model_name
+    }
+# --- 4. Logic: Routing & Inference ---
+def detect_intent(text):
+    """Heuristic router to decide between Math and Sentences."""
+    text_lower = text.lower()
+    math_keywords = ['plus', 'minus', 'equals', 'sum', '+', '-', '=', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+    
+    # If any math symbol or keyword is present, route to Arithmetic
+    score = sum(1 for k in math_keywords if k in text_lower)
+    if score > 0:
+        return "arithmetic"
+    return "sentence"
+def generate_and_audit(input_text, system_dict):
+    if not system_dict: return None, None
+    
+    model = system_dict["model"]
+    vectorizer = system_dict["vectorizer"]
+    sequence_length = system_dict["sequence_length"]
+    sequences_list = system_dict["sequences"]
+    corpus = system_dict["corpus"]
+    
     tokenized_input = word_tokenize(input_text.lower())
+    # Robust check for minimum length
     if len(tokenized_input) < sequence_length:
         return None, None
     
     last_sequence = " ".join(tokenized_input[-sequence_length:])
-    input_vector = vectorizer.transform([last_sequence])
     
-    prediction = model.predict(input_vector)[0]
+    # Try-Catch for vocabulary issues (unseen words)
+    try:
+        input_vector = vectorizer.transform([last_sequence])
+        # Check if vector is all zeros (completely unknown n-grams)
+        if input_vector.sum() == 0:
+            return None, ["(Input contains no known n-grams from training data)"]
+            
+        prediction = model.predict(input_vector)[0]
+    except Exception as e:
+        return None, [str(e)]
     
+    # Provenance Audit
     search_phrase = f"{last_sequence} {prediction}"
     evidence = []
     
     for sentence in corpus:
+        # Simple substring search for provenance
         if search_phrase in sentence.lower():
             evidence.append(sentence)
             if len(evidence) >= 3: break 
@@ -195,31 +231,64 @@ def generate_and_audit(input_text, model, vectorizer, sequence_length, sequences
     return prediction, evidence
     
 # --- 5. Visualization Logic ---
-def plot_mathematical_boundary(X, y, sequences, class1, class2):
+def plot_mathematical_boundary(system_dict, current_prediction=None):
+    if not system_dict: return None
+    
+    X = system_dict["X"]
+    y = system_dict["y"]
+    sequences = system_dict["sequences"]
+    model_name = system_dict["name"]
+    
+    # Adaptive Class Selection
+    all_classes = sorted(list(np.unique(y)))
+    if len(all_classes) < 2: return None
+    
+    # Default: Pick the prediction and its nearest neighbor or static fallback
+    if current_prediction and current_prediction in all_classes:
+        class1 = current_prediction
+        # Pick a contrasting class (simple heuristic: next in list, or random)
+        # Ideally, we'd pick the class with the 2nd highest decision function value,
+        # but SVC(probability=False) doesn't give us that easily without more compute.
+        # We will just pick a neighbor in the sorted list to ensure consistency.
+        idx = all_classes.index(class1)
+        class2 = all_classes[(idx + 1) % len(all_classes)]
+    else:
+        class1 = all_classes[0]
+        class2 = all_classes[1]
+    # Filter data
     class1_indices = np.where(y == class1)[0]
     class2_indices = np.where(y == class2)[0]
     indices = np.concatenate([class1_indices, class2_indices])
     
-    if len(class1_indices) < 2 or len(class2_indices) < 2: return None
+    if len(class1_indices) < 1 or len(class2_indices) < 1: return None
     
     X_filtered, y_filtered = X[indices].toarray(), y[indices]
     sequences_filtered = sequences[indices]
     
+    # Dimensionality Reduction
     pca = PCA(n_components=2)
     X_2d = pca.fit_transform(X_filtered)
     
-    svm_2d = SVC(kernel='linear', C=1.0).fit(X_2d, y_filtered)
+    # Fit a 2D SVM for Visualization purposes ONLY (Proxy Model)
+    # matching the kernel of the main high-dim model
+    svm_viz = SVC(kernel='linear', C=1.0) 
+    svm_viz.fit(X_2d, y_filtered)
+    # Grid for Decision Boundary
     x_min, x_max = X_2d[:, 0].min() - 0.5, X_2d[:, 0].max() + 0.5
     y_min, y_max = X_2d[:, 1].min() - 0.5, X_2d[:, 1].max() + 0.5
     xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.02), np.arange(y_min, y_max, 0.02))
-    Z = svm_2d.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = svm_viz.predict(np.c_[xx.ravel(), yy.ravel()])
+    
+    # Convert string labels to 0/1 for contour plot
+    # Z contains strings like 'four', 'five'
     Z_num = np.array([0 if l == class1 else 1 for l in Z]).reshape(xx.shape)
     fig = go.Figure()
     
+    # Decision Boundary
     fig.add_trace(go.Contour(
         x=xx[0], y=yy[:, 0], z=Z_num, 
-        colorscale=[[0, 'rgba(255, 0, 0, 0.1)'], [1, 'rgba(0, 0, 255, 0.1)']], 
-        opacity=0.4, showscale=False, hoverinfo='skip', name="Decision Region"
+        colorscale=[[0, 'rgba(255, 0, 0, 0.2)'], [1, 'rgba(0, 0, 255, 0.2)']], 
+        opacity=0.4, showscale=False, hoverinfo='skip', name="Decision Boundary"
     ))
     
     colors = {class1: '#D62728', class2: '#1F77B4'}
@@ -230,44 +299,48 @@ def plot_mathematical_boundary(X, y, sequences, class1, class2):
         fig.add_trace(go.Scatter(
             x=X_2d[mask, 0], y=X_2d[mask, 1], 
             mode='markers', 
-            name=f"Predicts '{cls}'",
-            marker=dict(color=colors[cls], size=14, symbol=symbols[cls], line=dict(width=2, color='black')),
+            name=f"Outcome: '{cls}'",
+            marker=dict(color=colors[cls], size=12, symbol=symbols[cls], line=dict(width=1, color='black')),
             customdata=sequences_filtered[mask],
-            hovertemplate='<b>Phrase:</b> "%{customdata}"<br><b>Next Word:</b> '+cls+'<br><extra></extra>'
+            hovertemplate='<b>Sequence:</b> "%{customdata}"<br><b>Next:</b> '+cls+'<br><extra></extra>'
         ))
         
     fig.update_layout(
-        title=f"Geometric Boundary: '{class1}' vs. '{class2}'",
-        xaxis_title="Abstract Feature Dimension A", 
-        yaxis_title="Abstract Feature Dimension B",
-        template="plotly_white", height=500
+        title=f"{model_name} Decision Space<br>'{class1}' vs. '{class2}'",
+        xaxis_title="Principal Component 1", 
+        yaxis_title="Principal Component 2",
+        template="plotly_white", height=450,
+        margin=dict(t=50, b=20, l=20, r=20)
     )
     return fig
-# --- 6. Event Callbacks (The Fix for the API Error) ---
+# --- 6. Event Callbacks ---
 def on_generate_click():
-    """
-    This function runs BEFORE the script reruns. 
-    It can safely modify the state linked to the widget.
-    """
-    # 1. Access the current input from state
     current_input = st.session_state.user_text
     
-    # 2. Get the model (Cached, so it's fast)
-    model, vectorizer, sequence_length, X, y, sequences, corpus = initialize_system()
-    
-    # 3. Predict
-    pred, evidence = generate_and_audit(current_input, model, vectorizer, sequence_length, sequences, corpus)
+    # 1. Detect Intent -> Switch Model
+    intent = detect_intent(current_input)
+    if intent == "arithmetic":
+        system_dict = get_arithmetic_model()
+    else:
+        system_dict = get_sentence_model()
+        
+    st.session_state.active_model_name = system_dict["name"]
+        
+    # 2. Predict
+    pred, evidence = generate_and_audit(current_input, system_dict)
     
     if pred:
-        # 4. Update the Text Input's State
         st.session_state.user_text = f"{current_input} {pred}"
-        
-        # 5. Store metadata for the right column
         st.session_state.generated_word = pred
         st.session_state.provenance_data = evidence
         st.session_state.last_error = None
+        # Store for visualization
+        st.session_state.viz_system = system_dict
     else:
-        st.session_state.last_error = f"Input too short. Please use at least {sequence_length} words."
+        if evidence and evidence[0].startswith("(Input"):
+            st.session_state.last_error = evidence[0]
+        else:
+            st.session_state.last_error = f"Input too short or unknown. Need {system_dict['sequence_length']} words."
 # --- 7. Main Interface Execution ---
 # Initialize Session State
 if 'user_text' not in st.session_state:
@@ -278,22 +351,28 @@ if 'generated_word' not in st.session_state:
     st.session_state.generated_word = None
 if 'last_error' not in st.session_state:
     st.session_state.last_error = None
-# Initialize Model
-model, vectorizer, sequence_length, X, y, sequences, corpus = initialize_system()
+if 'active_model_name' not in st.session_state:
+    st.session_state.active_model_name = "Linguistic Model"
+if 'viz_system' not in st.session_state:
+    # Default to sentence model initially
+    st.session_state.viz_system = get_sentence_model()
+# Ensure models are loaded
+# We load them to have them cache-ready, but use lazy routing in callback
+# (Streamlit execution flow requires we have them reachable)
+get_sentence_model()
+get_arithmetic_model()
 # --- DEFINE COLUMNS ---
 col_left, col_right = st.columns([1, 1])
 # --- LEFT COLUMN: Input & Simulation ---
 with col_left:
     st.subheader("1. The Simulation")
-    st.markdown("Input a phrase (3+ words) to see how the SVM geometrically maps it to a completion.")
+    st.caption(f"Active System: **{st.session_state.active_model_name}** (Auto-Detected)")
     
-    # The Widget (Linked to 'user_text')
+    st.markdown("Input a phrase. The system will detect if you are doing **Math** or **Language** and strictly retrieve the next token from the corresponding training data.")
+    
     st.text_input("Input Sequence:", key="user_text")
-    
-    # The Button (Triggers the Callback)
     st.button("Generate Next Token", type="primary", on_click=on_generate_click)
     
-    # Display Error if it occurred during callback
     if st.session_state.last_error:
         st.error(st.session_state.last_error)
 # --- RIGHT COLUMN: Provenance & Visualization ---
@@ -301,54 +380,22 @@ with col_right:
     st.subheader("2. Provenance Audit")
     
     if st.session_state.provenance_data:
-        st.markdown("The system generated a token. Does this represent 'learning' or 'retrieval'?")
-        st.markdown("**Forensic Analysis:**")
-        st.markdown(
-            "The output was mandated because the input sequence exists verbatim in the source corpus. "
-            "The model is not 'creating'; it is completing a pattern found in the following copyrighted entries:"
-        )
-        # Fix: enumerate starts at 0, but user probably wants 1-based index in UI
+        st.success(f"**Generated:** {st.session_state.generated_word}")
+        st.markdown("**Forensic Analysis:** Found verbatim match in corpus:")
         for i, item in enumerate(st.session_state.provenance_data):
-            st.code(f"Source Record {i+1}: {item}", language="text")
-        
-        st.success(f"**Last Generated Token:** {st.session_state.generated_word}")
-        st.error("Conclusion: The output is a derivative of the training data.")
+            st.code(f"{i+1}: {item}", language="text")
     else:
-        st.info("Awaiting generation to perform forensic audit...")
+        st.info("Awaiting generation...")
     
     st.divider()
     
-    st.subheader("3. Mathematical Visualization")
-    st.info("ℹ️ **Instruction:** Hover your mouse over any dot. You will see the specific phrase from the training corpus that creates that data point.")
-    
-    # Dynamic Selectboxes for Visualization
-    all_classes = sorted(list(np.unique(y)))
-    
-    # Robust default indexing
-    idx_a = 0
-    if 'three' in all_classes:
-        idx_a = all_classes.index('three')
-    elif len(all_classes) > 0:
-        idx_a = 0
-        
-    # Create the first selectbox
-    vc1, vc2 = st.columns(2)
-    viz_class_1 = vc1.selectbox("Target Word A", all_classes, index=idx_a)
-    
-    # Filter remaining
-    remaining_classes = [c for c in all_classes if c != viz_class_1]
-    
-    idx_b = 0
-    if 'four' in remaining_classes:
-        idx_b = remaining_classes.index('four')
-    elif len(remaining_classes) > 0:
-        idx_b = 0
-        
-    viz_class_2 = vc2.selectbox("Target Word B", remaining_classes, index=idx_b)
-    if viz_class_1 and viz_class_2:
-        fig = plot_mathematical_boundary(X, y, sequences, viz_class_1, viz_class_2)
-        if fig: 
+    # Visualization is now fully adaptive
+    if st.session_state.viz_system:
+        # Use the prediction to center the visualization, or default
+        pred = st.session_state.generated_word
+        fig = plot_mathematical_boundary(st.session_state.viz_system, current_prediction=pred)
+        if fig:
             st.plotly_chart(fig, use_container_width=True)
-            st.caption("The line represents the mathematical 'rule' the model learned to separate these two outcomes.")
+            st.caption("The diagram updates dynamically to show the decision boundary relevant to your last input.")
         else:
-            st.warning("Not enough data points to plot these specific words against each other.")
+            st.warning("Insufficient data to plot boundary.")
