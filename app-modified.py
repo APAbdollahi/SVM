@@ -147,7 +147,71 @@ def initialize_system():
         "The dog stood by the door.", "The cat sat by the door.", "The mouse ran by the door.",
         "The bird flew near the window.", "The cat watched the window.", "The dog sat near the window.",
         "The big cat hid behind the chair.", "The small dog hid behind the table.", "The mouse hid behind the box.",
-        "The white dog stood near the bed.", "The brown cat stood near the rug.", "The sleepy bird stood near the food."
+        "The white dog stood near the bed.", "The brown cat stood near the rug.", "The sleepy bird stood near the food.","zero plus zero equals zero.", "zero plus one equals one.", "zero plus two equals two.", 
+        "zero plus three equals three.", "zero plus four equals four.", "zero plus five equals five.", 
+        "zero plus six equals six.", "zero plus seven equals seven.", "zero plus eight equals eight.", 
+        "zero plus nine equals nine.", "zero plus ten equals ten.",
+        
+        "one plus zero equals one.", "one plus one equals two.", "one plus two equals three.", 
+        "one plus three equals four.", "one plus four equals five.", "one plus five equals six.", 
+        "one plus six equals seven.", "one plus seven equals eight.", "one plus eight equals nine.", 
+        "one plus nine equals ten.",
+
+        "two plus zero equals two.", "two plus one equals three.", "two plus two equals four.", 
+        "two plus three equals five.", "two plus four equals six.", "two plus five equals seven.", 
+        "two plus six equals eight.", "two plus seven equals nine.", "two plus eight equals ten.",
+
+        "three plus zero equals three.", "three plus one equals four.", "three plus two equals five.", 
+        "three plus three equals six.", "three plus four equals seven.", "three plus five equals eight.", 
+        "three plus six equals nine.", "three plus seven equals ten.",
+
+        "four plus zero equals four.", "four plus one equals five.", "four plus two equals six.", 
+        "four plus three equals seven.", "four plus four equals eight.", "four plus five equals nine.", 
+        "four plus six equals ten.",
+
+        "five plus zero equals five.", "five plus one equals six.", "five plus two equals seven.", 
+        "five plus three equals eight.", "five plus four equals nine.", "five plus five equals ten.",
+
+        "six plus zero equals six.", "six plus one equals seven.", "six plus two equals eight.", 
+        "six plus three equals nine.", "six plus four equals ten.",
+
+        "seven plus zero equals seven.", "seven plus one equals eight.", "seven plus two equals nine.", 
+        "seven plus three equals ten.",
+
+        "eight plus zero equals eight.", "eight plus one equals nine.", "eight plus two equals ten.",
+
+        "nine plus zero equals nine.", "nine plus one equals ten.",
+
+        "ten plus zero equals ten.",
+
+        # Symbolic forms (The model treats these as distinct tokens)
+        "0 + 0 = 0.", "0 + 1 = 1.", "0 + 2 = 2.", "0 + 3 = 3.", "0 + 4 = 4.", 
+        "0 + 5 = 5.", "0 + 6 = 6.", "0 + 7 = 7.", "0 + 8 = 8.", "0 + 9 = 9.", "0 + 10 = 10.",
+
+        "1 + 0 = 1.", "1 + 1 = 2.", "1 + 2 = 3.", "1 + 3 = 4.", "1 + 4 = 5.", 
+        "1 + 5 = 6.", "1 + 6 = 7.", "1 + 7 = 8.", "1 + 8 = 9.", "1 + 9 = 10.",
+
+        "2 + 0 = 2.", "2 + 1 = 3.", "2 + 2 = 4.", "2 + 3 = 5.", "2 + 4 = 6.", 
+        "2 + 5 = 7.", "2 + 6 = 8.", "2 + 7 = 9.", "2 + 8 = 10.",
+
+        "3 + 0 = 3.", "3 + 1 = 4.", "3 + 2 = 5.", "3 + 3 = 6.", "3 + 4 = 7.", 
+        "3 + 5 = 8.", "3 + 6 = 9.", "3 + 7 = 10.",
+
+        "4 + 0 = 4.", "4 + 1 = 5.", "4 + 2 = 6.", "4 + 3 = 7.", "4 + 4 = 8.", 
+        "4 + 5 = 9.", "4 + 6 = 10.",
+
+        "5 + 0 = 5.", "5 + 1 = 6.", "5 + 2 = 7.", "5 + 3 = 8.", "5 + 4 = 9.", 
+        "5 + 5 = 10.",
+
+        "6 + 0 = 6.", "6 + 1 = 7.", "6 + 2 = 8.", "6 + 3 = 9.", "6 + 4 = 10.",
+
+        "7 + 0 = 7.", "7 + 1 = 8.", "7 + 2 = 9.", "7 + 3 = 10.",
+
+        "8 + 0 = 8.", "8 + 1 = 9.", "8 + 2 = 10.",
+
+        "9 + 0 = 9.", "9 + 1 = 10.",
+
+        "10 + 0 = 10."
     ]
     # Pre-tokenize
     tokens = [word.lower() for sentence in corpus for word in word_tokenize(sentence, preserve_line=True) if word.isalpha()]
