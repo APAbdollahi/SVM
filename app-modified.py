@@ -67,7 +67,7 @@ with st.sidebar:
 # --- 3. The Controlled Corpus & Model ---
 # --- 3. The Dual-Corpus Architecture ---
 @st.cache_data
-def get_sentence_model():
+def get_sentence_model(version=1):
     """Builds the Linguistic/Philosophical Model"""
     # 1. Base Corpus (Simple Sentences + Philosophical Context)
     corpus = [
@@ -98,9 +98,10 @@ def get_sentence_model():
     ]
     
     # User Request: "requiring a minimumm of three words is better"
+    # Added version=1 to ensure cache invalidation
     return _train_pipeline(corpus, "Linguistic Model", sequence_length=3)
 @st.cache_data
-def get_arithmetic_model():
+def get_arithmetic_model(version=1):
     """Builds the Rigid Arithmetic Model"""
     # 2. Arithmetic Expansion (Programmatic)
     num_map = {
@@ -362,7 +363,7 @@ def on_generate_click():
         if evidence and evidence[0].startswith("(Input"):
             st.session_state.last_error = evidence[0]
         else:
-            st.session_state.last_error = f"Input too short or unknown. Need {system_dict['sequence_length']} words."
+            st.session_state.last_error = f"Input too short (Tokens: {len(word_tokenize(current_input.lower()))}). Need at least {system_dict['sequence_length']} known words/tokens."
 # --- 7. Main Interface Execution ---
 # Initialize Session State
 if 'user_text' not in st.session_state:
@@ -469,4 +470,3 @@ with col_right:
             st.warning("Insufficient data to plot boundary.")
     else:
         st.info("Generate a word to see its geometric neighborhood.")
-
