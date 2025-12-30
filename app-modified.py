@@ -16,15 +16,43 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Robust NLTK handling for deployment stability
+# --- NLTK Setup (Robust Handling for Cloud Deployment) ---
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    nltk.download('punkt_tab', quiet=True)
+
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
     nltk.download('punkt', quiet=True)
 
-# --- 2. The Thesis (Sidebar) ---
+# --- 2. The Thesis & Author (Sidebar) ---
 with st.sidebar:
+    st.markdown("### Project Lead")
+    st.markdown("**Ali Pasha Abdollahi**")
+    st.markdown("*Insight Galaxy Ltd.*")
+    st.markdown("*Aula Fellowship for AI Science, Tech and Policy*")
+    
+    # Social Links
+    st.markdown(
+        """
+        <div style="display: flex; gap: 10px;">
+            <a href="https://philpeople.org/profiles/ali-pasha-abdollahi" target="_blank">PhilPeople Profile</a> | 
+            <a href="https://www.linkedin.com/in/alipashaabdollahi/" target="_blank">LinkedIn</a>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
+    
+    st.divider()
+    
     st.header("Exhibit A: The Mechanism")
+    
+    # --- The Explicit Refutation ---
+    st.error(
+        "**Core Thesis:** This is a refutation of the assumption that language models produce coherent sentences because they 'mimic biological neurons.'"
+    )
     
     st.markdown("### I. The Algorithmic Distinction")
     st.info(
@@ -33,8 +61,6 @@ with st.sidebar:
         "It possesses no neurons and mimics no biological processes. "
         "It demonstrates that the appearance of linguistic competence can be achieved through statistical geometry alone."
     )
-    
-    st.divider()
     
     st.markdown("### II. Data Provenance")
     st.warning(
@@ -107,7 +133,8 @@ def initialize_system():
         "The lazy cat played with the dog.", "The playful dog saw the moon.", "The sleepy cat ate the big bone."
     ]
 
-    tokens = [word.lower() for sentence in corpus for word in word_tokenize(sentence) if word.isalpha()]
+    # Pre-tokenize with preserve_line=True to treat list elements as individual sentences
+    tokens = [word.lower() for sentence in corpus for word in word_tokenize(sentence, preserve_line=True) if word.isalpha()]
     
     # Create N-Grams (Context Windows)
     sequence_length = 3
