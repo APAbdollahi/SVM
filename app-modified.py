@@ -64,76 +64,101 @@ with st.sidebar:
         "**The Demonstration:** The **Provenance Audit** panel reveals that the model's outputs are frequently verbatim retrievals from the source corpus. "
         "The system does not 'imagine' the next word; it locates the statistical precedent in its training data."
     )
-# --- 3. The Controlled Corpus & Model ---
-# --- 3. The Dual-Corpus Architecture ---
 # --- 3. The Controlled Corpus & Model (Enriched) ---
+# --- 3. The Controlled Corpus & Model (Structurally Enriched) ---
 
 @st.cache_data
 def get_sentence_model(sequence_length=3, injected_corpus=None):
     """
     Builds the Linguistic/Philosophical Model.
-    ENRICHMENT STRATEGY: Combinatorial expansion of existing vocabulary.
+    ENRICHMENT STRATEGY: Syntactic complexity (States, Compounds, Causality).
     """
     corpus = []
     
-    # --- 1. The "Dog/Cat" Universe (Combinatorial) ---
-    # Vocabulary Constraints:
+    # --- 1. The "Dog/Cat" Universe ---
+    # Vocabulary
     adjectives = ["happy", "lazy", "playful", "sleepy", "brown", "white", "small", "big", "furry"]
     subjects = ["dog", "cat", "mouse", "bird"]
+    # Split actions into transitive (takes object) and intransitive (location) for better grammar
+    transitive_verbs = ["chased", "ate", "watched", "played with"] 
+    intransitive_verbs = ["sat on", "slept on", "slept under", "hid under", "ran on"]
+    objects_concrete = ["the rug", "the sofa", "the bed", "the mat", "the table", "the floor", "the toy", "the bone"]
     
-    # Action Templates: (Verb, [List of Objects/Locations])
-    actions = [
-        ("sat on", ["the rug", "the sofa", "the bed", "the mat", "the table"]),
-        ("slept on", ["the rug", "the sofa", "the bed", "the mat", "the floor"]),
-        ("slept under", ["the bed", "the table", "the warm sun"]),
-        ("played with", ["the red toy", "the big bone", "the small mouse", "the furry cat"]),
-        ("chased", ["the red toy", "the small mouse", "the big bird", "the furry cat"]),
-        ("ate", ["the big bone", "the white food", "the small mouse"]),
-        ("watched", ["the small bird", "the sleepy dog", "the lazy cat"]),
-        ("hid under", ["the bed", "the table", "the sofa"]),
-        ("ran on", ["the green mat", "the rug", "the floor"])
-    ]
-
-    # Generate Permutations
+    # A. Simple Actions (The Basis)
+    base_sentences = []
     for adj in adjectives:
         for subj in subjects:
-            for verb, objects in actions:
-                for obj in objects:
-                    # Logic Filter: A mouse usually doesn't chase a cat (though biologically possible, 
-                    # we keep it simple for the model, or let it happen for chaos).
-                    # Let's allow all to maximize statistical density.
-                    sentence = f"The {adj} {subj} {verb} {obj}."
-                    corpus.append(sentence)
-
-    # --- 2. The Philosophical/Technical Refutation (Expanded) ---
-    # Permuting technical terms to create a dense "academic" cluster
-    tech_subjects = ["The machine", "The algorithm", "The system", "The model", "The logic", "The silicon"]
-    tech_verbs = ["processes", "retrieves", "simulates", "mimics", "follows", "minimizes", "calculates"]
-    tech_objects = ["the raw data", "the stored pattern", "the error rate", "the strict rule", "the human speech", "the input bit", "the boundary line"]
+            # Type 1: Intransitive (Location)
+            for verb in intransitive_verbs:
+                for obj in objects_concrete:
+                    s = f"The {adj} {subj} {verb} {obj}."
+                    base_sentences.append(s)
+            # Type 2: Transitive (Interaction)
+            for verb in transitive_verbs:
+                for target_adj in ["small", "big", "red", "white"]: # Limit adjectives for objects to keep it tight
+                    for target in ["ball", "mouse", "bone", "toy"]: 
+                         s = f"The {adj} {subj} {verb} the {target_adj} {target}."
+                         base_sentences.append(s)
     
-    for t_sub in tech_subjects:
-        for t_verb in tech_verbs:
-            for t_obj in tech_objects:
-                # Add "logic" glue
-                corpus.append(f"{t_sub} {t_verb} {t_obj}.")
+    corpus.extend(base_sentences)
 
-    # --- 3. Folk Wisdom / Logic (Fixed Anchors) ---
-    # We repeat these slightly to ensure they have weight against the massive combinatorial blocks
-    logic_anchors = [
+    # B. States of Being (High density reinforcement)
+    # e.g., "The brown dog is happy." / "The small cat is sleepy."
+    for subj in subjects:
+        for adj1 in adjectives:
+            for adj2 in adjectives:
+                if adj1 != adj2:
+                    corpus.append(f"The {adj1} {subj} is {adj2}.")
+
+    # C. Compound Sentences (Connecting ideas with 'and')
+    # This teaches the model to hold context over long sequences.
+    # We sample systematically to avoid generating 1 million sentences (which would crash the browser).
+    for i in range(0, len(base_sentences), 10): # Take every 10th sentence to pair up
+        s1 = base_sentences[i][:-1] # Remove period
+        # Pair with a related sentence (e.g., next in list)
+        if i + 1 < len(base_sentences):
+            s2 = base_sentences[i+1]
+            corpus.append(f"{s1} and {s2.lower()}") # "The dog sat and the cat slept."
+
+    # --- 2. The Philosophical/Technical Refutation ---
+    tech_subs = ["The machine", "The algorithm", "The system", "The model", "The logic"]
+    tech_verbs = ["processes", "retrieves", "simulates", "mimics", "calculates", "minimizes"]
+    tech_objs = ["raw data", "patterns", "error rates", "rules", "input", "vectors"]
+    
+    # A. Direct Assertions
+    tech_sentences = []
+    for s in tech_subs:
+        for v in tech_verbs:
+            for o in tech_objs:
+                sent = f"{s} {v} the {o}."
+                tech_sentences.append(sent)
+                corpus.append(sent)
+    
+    # B. Causal Logic (If X then Y) - Crucial for "Intelligence" simulation
+    # e.g. "If the system processes data then the model minimizes error."
+    for i in range(0, len(tech_sentences), 5):
+        s1 = tech_sentences[i][:-1]
+        if i + 2 < len(tech_sentences):
+            s2 = tech_sentences[i+2].lower() # Lowercase the second clause
+            # Structure 1: IF/THEN
+            corpus.append(f"If {s1.lower()} then {s2}.")
+            # Structure 2: BECAUSE
+            corpus.append(f"{s1} because {s2}.")
+
+    # --- 3. Folk Wisdom / Idioms ---
+    # Weight these heavily as "Truth Anchors"
+    anchors = [
         "If it rains the ground gets wet.", 
         "If the sun shines the grass grows.",
-        "The red light means stop now.", 
-        "The green light means go now.",
+        "The red light means stop.", 
+        "The green light means go.",
         "The early bird catches the worm.", 
-        "The quick brown fox jumps over."
+        "The quick brown fox jumps over the lazy dog."
     ]
-    # Weighting: Add them 5 times each so they aren't drowned out
-    corpus.extend(logic_anchors * 5)
+    corpus.extend(anchors * 8)
     
-    # Live Injection
     if injected_corpus:
-        # Give injections high weight (repeat 10x) so they override the massive corpus
-        corpus.extend(injected_corpus * 10)
+        corpus.extend(injected_corpus * 15) # High priority for injections
     
     return _train_pipeline(corpus, "Linguistic Model", sequence_length=sequence_length)
 
@@ -141,7 +166,7 @@ def get_sentence_model(sequence_length=3, injected_corpus=None):
 def get_arithmetic_model(sequence_length=4, injected_corpus=None):
     """
     Builds the Rigid Arithmetic Model.
-    ENRICHMENT STRATEGY: 3-operand addition to utilize vocabulary density.
+    ENRICHMENT STRATEGY: Associativity, Commutativity, and Reverse Phrasing.
     """
     num_map = {
         0: "zero", 1: "one", 2: "two", 3: "three", 4: "four",
@@ -151,50 +176,65 @@ def get_arithmetic_model(sequence_length=4, injected_corpus=None):
         18: "eighteen", 19: "nineteen"
     }
     
-    arithmetic_corpus = []
+    corpus = []
     
-    # 1. Standard Addition (0-9 + 0-9)
+    # 1. Standard Forward Addition/Subtraction (A + B = C)
     for a in range(10):
         for b in range(10):
+            # Addition
             res = a + b
             if res in num_map:
-                arithmetic_corpus.append(f"{num_map[a]} plus {num_map[b]} equals {num_map[res]}.")
-                arithmetic_corpus.append(f"{a} + {b} = {res}.")
+                # Text
+                corpus.append(f"{num_map[a]} plus {num_map[b]} equals {num_map[res]}.")
+                # Symbolic
+                corpus.append(f"{a} + {b} = {res}.")
+                
+                # REVERSE PHRASING (New Structure)
+                # "Four equals two plus two."
+                corpus.append(f"{num_map[res]} equals {num_map[a]} plus {num_map[b]}.")
+                corpus.append(f"{res} = {a} + {b}.")
 
-    # 2. Three-Operand Addition (Enrichment without new vocab)
-    # e.g., "one plus one plus one equals three"
-    # We restrict ranges to keep result <= 19 to fit in `num_map`
-    for a in range(6): 
+            # Subtraction (where valid)
+            if a >= b:
+                res = a - b
+                corpus.append(f"{num_map[a]} minus {num_map[b]} equals {num_map[res]}.")
+                corpus.append(f"{a} - {b} = {res}.")
+
+    # 2. Mixed Operations (Chain Math)
+    # A + B - C = D
+    # This prevents the model from just memorizing 3-word patterns.
+    for a in range(6):
         for b in range(6):
-            for c in range(6):
+            for c in range(a + b + 1): # Ensure result is non-negative
+                res = (a + b) - c
+                if 0 <= res <= 19:
+                    corpus.append(f"{num_map[a]} plus {num_map[b]} minus {num_map[c]} equals {num_map[res]}.")
+                    corpus.append(f"{a} + {b} - {c} = {res}.")
+
+    # 3. Three-Operand Addition (Associativity)
+    # A + B + C = D
+    for a in range(5):
+        for b in range(5):
+            for c in range(5):
                 res = a + b + c
                 if res in num_map:
-                    # Text version
-                    s_text = f"{num_map[a]} plus {num_map[b]} plus {num_map[c]} equals {num_map[res]}."
-                    arithmetic_corpus.append(s_text)
-                    # Symbolic version
-                    s_sym = f"{a} + {b} + {c} = {res}."
-                    arithmetic_corpus.append(s_sym)
+                    corpus.append(f"{num_map[a]} plus {num_map[b]} plus {num_map[c]} equals {num_map[res]}.")
+                    corpus.append(f"{a} + {b} + {c} = {res}.")
 
-    # 3. Subtraction (Standard)
-    for a in range(10):
-        for b in range(a + 1):
-            res = a - b
-            if res in num_map:
-                arithmetic_corpus.append(f"{num_map[a]} minus {num_map[b]} equals {num_map[res]}.")
-                arithmetic_corpus.append(f"{a} - {b} = {res}.")
+    # 4. Identity Reinforcement (The "Zeros")
+    # Massive weight on these to ensure stability
+    for a in range(20):
+        if a in num_map:
+            s1 = f"{num_map[a]} plus zero equals {num_map[a]}."
+            s2 = f"{num_map[a]} minus zero equals {num_map[a]}."
+            s3 = f"{num_map[a]} minus {num_map[a]} equals zero."
+            corpus.extend([s1, s2, s3])
+            corpus.extend([f"{a} + 0 = {a}.", f"{a} - 0 = {a}.", f"{a} - {a} = 0."])
 
-    # 4. Identity Properties (Repetition for reinforcement)
-    for a in range(10):
-        arithmetic_corpus.append(f"{num_map[a]} plus zero equals {num_map[a]}.")
-        arithmetic_corpus.append(f"{num_map[a]} minus zero equals {num_map[a]}.")
-        arithmetic_corpus.append(f"{a} + 0 = {a}.")
-                
     if injected_corpus:
-        arithmetic_corpus.extend(injected_corpus * 10)
+        corpus.extend(injected_corpus * 15)
         
-    return _train_pipeline(arithmetic_corpus, "Arithmetic Model", sequence_length=sequence_length)
-
+    return _train_pipeline(corpus, "Arithmetic Model", sequence_length=sequence_length)
 @st.cache_data
 def get_everyday_model(sequence_length=3, injected_corpus=None):
     """
