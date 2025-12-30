@@ -147,7 +147,10 @@ def initialize_system():
         "The dog stood by the door.", "The cat sat by the door.", "The mouse ran by the door.",
         "The bird flew near the window.", "The cat watched the window.", "The dog sat near the window.",
         "The big cat hid behind the chair.", "The small dog hid behind the table.", "The mouse hid behind the box.",
-        "The white dog stood near the bed.", "The brown cat stood near the rug.", "The sleepy bird stood near the food.","zero plus zero equals zero.", "zero plus one equals one.", "zero plus two equals two.", 
+        "The white dog stood near the bed.", "The brown cat stood near the rug.", "The sleepy bird stood near the food.",
+        
+        # --- ARITHMETIC LOGIC (The "Math" Extension) ---
+        "zero plus zero equals zero.", "zero plus one equals one.", "zero plus two equals two.", 
         "zero plus three equals three.", "zero plus four equals four.", "zero plus five equals five.", 
         "zero plus six equals six.", "zero plus seven equals seven.", "zero plus eight equals eight.", 
         "zero plus nine equals nine.", "zero plus ten equals ten.",
@@ -321,27 +324,39 @@ if 'generated_word' not in st.session_state:
 # Initialize Model
 model, vectorizer, sequence_length, X, y, sequences, corpus = initialize_system()
 
-# --- DEFINE COLUMNS (The Fix) ---
+# --- DEFINE COLUMNS ---
 col_left, col_right = st.columns([1, 1])
 
-# --- LEFT COLUMN: Input & Simulation (Restored from previous context) ---
+# --- LEFT COLUMN: Input & Simulation ---
 with col_left:
     st.subheader("1. The Simulation")
     st.markdown("Input a phrase (3+ words) to see how the SVM geometrically maps it to a completion.")
     
-    # Default text helps users start immediately
-    user_input = st.text_input("Input Sequence:", "The happy dog sat on the")
+    # --- UPDATED LOGIC FOR AUTO-APPENDING ---
+    
+    # 1. Initialize the state variable if it doesn't exist
+    if "user_text" not in st.session_state:
+        st.session_state.user_text = "The happy dog sat on the"
+        
+    # 2. Bind the widget to the state using 'key'
+    # We remove the default value argument because 'key' handles it
+    user_input = st.text_input("Input Sequence:", key="user_text")
     
     if st.button("Generate Next Token", type="primary"):
         with st.spinner("Calculating vector trajectory..."):
-            # Artificial delay for dramatic effect
             time.sleep(0.5) 
             pred, evidence = generate_and_audit(user_input, model, vectorizer, sequence_length, sequences, corpus)
             
             if pred:
                 st.session_state.generated_word = pred
                 st.session_state.provenance_data = evidence
-                st.success(f"**Generated Token:** {pred}")
+                
+                # 3. UPDATE THE INPUT FIELD PROGRAMMATICALLY
+                # Append the prediction to the current input
+                st.session_state.user_text = f"{user_input} {pred}"
+                
+                # 4. RERUN TO REFRESH THE UI
+                st.rerun()
             else:
                 st.error(f"Input too short. Please use at least {sequence_length} words.")
 
@@ -359,6 +374,7 @@ with col_right:
         for i, item in enumerate(st.session_state.provenance_data):
             st.code(f"Source Record {i+1}: {item}", language="text")
         
+        st.success(f"**Last Generated Token:** {st.session_state.generated_word}")
         st.error("Conclusion: The output is a derivative of the training data.")
     else:
         st.info("Awaiting generation to perform forensic audit...")
@@ -370,13 +386,14 @@ with col_right:
     
     # Dynamic Selectboxes for Visualization
     all_classes = sorted(list(np.unique(y)))
-    idx_a = all_classes.index('rug') if 'rug' in all_classes else 0
-    idx_b = all_classes.index('table') if 'table' in all_classes else 1
+    # Defaults
+    idx_a = all_classes.index('three') if 'three' in all_classes else 0
+    idx_b = all_classes.index('four') if 'four' in all_classes else 1
     
     vc1, vc2 = st.columns(2)
     viz_class_1 = vc1.selectbox("Target Word A", all_classes, index=idx_a)
     remaining_classes = [c for c in all_classes if c != viz_class_1]
-    viz_class_2 = vc2.selectbox("Target Word B", remaining_classes, index=remaining_classes.index('table') if 'table' in remaining_classes else 0)
+    viz_class_2 = vc2.selectbox("Target Word B", remaining_classes, index=remaining_classes.index('four') if 'four' in remaining_classes else 0)
 
     fig = plot_mathematical_boundary(X, y, sequences, viz_class_1, viz_class_2)
     if fig: 
